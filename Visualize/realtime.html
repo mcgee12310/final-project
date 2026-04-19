@@ -1,0 +1,633 @@
+<!doctype html>
+<html lang="vi">
+
+<head>
+  <meta charset="utf-8" />
+  <title>BPAB Real-time Visualizer</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <style>
+    /* ── GIỮ NGUYÊN CSS BẢN CŨ CỦA BẠN ── */
+    body {
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      margin: 0;
+      background: #f4f7f6;
+      color: #333;
+      overflow-y: auto;
+      padding-bottom: 80px;
+      /* Chừa chỗ cho frameBar */
+      box-sizing: border-box;
+    }
+
+    h2 {
+      margin-top: 0;
+      color: #2c3e50;
+    }
+
+    #controlsBox {
+      background: #fff;
+      padding: 15px;
+      border-radius: 8px;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+      margin: 10px;
+    }
+
+    .btn {
+      padding: 8px 12px;
+      border-radius: 4px;
+      border: none;
+      background: #3498db;
+      color: white;
+      cursor: pointer;
+      font-weight: bold;
+      margin-right: 5px;
+    }
+
+    .btn:hover {
+      background: #2980b9;
+    }
+
+    .btn.pause {
+      background: #e74c3c;
+    }
+
+    .btn.pause:hover {
+      background: #c0392b;
+    }
+
+    .btn.realtime-on {
+      background: #9b59b6;
+    }
+
+    .btn.realtime-on:hover {
+      background: #8e44ad;
+    }
+
+    .legend-item {
+      display: inline-flex;
+      align-items: center;
+      margin-right: 15px;
+      font-size: 12px;
+    }
+
+    .color-box {
+      width: 12px;
+      height: 12px;
+      display: inline-block;
+      margin-right: 5px;
+      border-radius: 3px;
+    }
+
+    #main {
+      display: flex;
+      gap: 15px;
+      margin: 0 10px 10px 10px;
+      height: 75vh;
+      min-height: 600px;
+    }
+
+    #canvas-wrap {
+      flex: 4;
+      /* Tỷ lệ cũ: Canvas lớn */
+      background: #fff;
+      border-radius: 8px;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+      overflow: hidden;
+      position: relative;
+    }
+
+    #infoPanel {
+      flex: 1;
+      /* Tỷ lệ cũ: Panel nhỏ */
+      background: #fff;
+      padding: 15px;
+      border-radius: 8px;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+      display: flex;
+      flex-direction: column;
+      font-size: 13px;
+      box-sizing: border-box;
+    }
+
+    #rtConsole {
+      width: 100%;
+      flex: 1;
+      background: #1e1e1e;
+      color: #00ff00;
+      font-family: 'Consolas', 'Courier New', monospace;
+      font-size: 12px;
+      padding: 8px;
+      overflow-y: auto;
+      border-radius: 4px;
+      box-sizing: border-box;
+      border: 1px solid #2c3e50;
+      white-space: pre-wrap;
+      margin-bottom: 10px;
+    }
+
+    #eventList {
+      flex: 1;
+      overflow-y: auto;
+      border-top: 1px solid #eee;
+      padding-top: 5px;
+    }
+
+    #ws-status {
+      font-weight: bold;
+      padding: 6px 15px;
+      border-radius: 4px;
+      display: inline-block;
+      font-size: 13px;
+      margin-right: 8px;
+    }
+
+    .ws-connecting {
+      background: #f1c40f;
+      color: #333;
+    }
+
+    .ws-connected {
+      background: #2ecc71;
+      color: #fff;
+    }
+
+    .ws-disconnected {
+      background: #e74c3c;
+      color: #fff;
+    }
+
+    .event-line {
+      padding: 4px 0;
+      border-bottom: 1px solid #eee;
+      font-family: monospace;
+    }
+
+    .event-line.highlight {
+      background: #fff3cd;
+      font-weight: bold;
+      color: #856404;
+    }
+
+    #frameBar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: #fff;
+      padding: 10px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: 0 -5px 15px rgba(0, 0, 0, 0.1);
+      z-index: 1000;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div id="controlsBox">
+    <div style="display: flex; align-items: center; justify-content: space-between;">
+      <div>
+        <h2>⚙ BPAB Live Dashboard</h2>
+        <span id="ws-status" class="ws-connecting">⏳ Đang kết nối...</span>
+        <button id="btnStartRT" class="btn realtime-on" style="display:none;">⚡ Start Real-time</button>
+        <button id="btnStopRT" class="btn pause">⛔ Stop Real-time</button>
+      </div>
+
+      <div style="border-left: 2px solid #eee; padding-left: 20px;">
+        <div style="font-weight:bold; margin-bottom: 5px;">Legend:</div>
+        <div class="legend-item"><span class="color-box" style="background:#bdc3c7;"></span> IDLE</div>
+        <div class="legend-item"><span class="color-box" style="background:#f1c40f;"></span> CONTENDING</div>
+        <div class="legend-item"><span class="color-box" style="background:#3498db;"></span> WAIT_CTB</div>
+        <div class="legend-item"><span class="color-box" style="background:#e67e22;"></span> PRE_CTB</div>
+        <div class="legend-item"><span class="color-box" style="background:#ffd700; border-radius:50%"></span> WINNER
+        </div><br>
+        <div class="legend-item"><span style="color:#e74c3c; font-weight:bold;">O</span> Black-Burst (BB)</div>
+        <div class="legend-item"><span style="color:#e67e22; font-weight:bold;">→</span> RTB/CTB</div>
+        <div class="legend-item"><span style="color:#2ecc71; font-weight:bold;">→</span> DATA</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="main">
+    <div id="canvas-wrap">
+      <svg id="svg" width="100%" height="100%">
+        <defs>
+          <marker id="arrow-green" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L9,3 z" fill="#2ecc71" />
+          </marker>
+          <marker id="arrow-blue" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L9,3 z" fill="#3498db" />
+          </marker>
+          <marker id="arrow-yellow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L9,3 z" fill="#f1c40f" />
+          </marker>
+        </defs>
+        <g id="zoom-layer">
+          <g id="grid-layer"></g>
+          <g id="effect-layer"></g>
+          <g id="edge-layer"></g>
+          <g id="node-layer"></g>
+        </g>
+      </svg>
+    </div>
+
+    <div id="infoPanel">
+      <div style="font-weight:bold; margin-bottom: 5px;">C++ Trace Log</div>
+      <div id="rtConsole"></div>
+      <div style="font-weight:bold; margin-bottom: 5px;">Filtered Events</div>
+      <div id="eventList"></div>
+    </div>
+  </div>
+
+  <div id="frameBar">
+    <div>
+      <span style="font-weight:bold; color:#7f8c8d;">STATUS:</span> <span id="barStatus"
+        style="color:#2ecc71; font-weight:bold;">MONITORING LIVE...</span>
+    </div>
+    <div style="font-size: 18px;">
+      <span style="font-weight:bold; color:#7f8c8d;">SIM TIME:</span>
+      <span id="timeLabel" style="font-family:monospace; font-weight:bold; color:#2980b9;">0.000 s</span>
+    </div>
+  </div>
+
+  <script>
+    // ══════════════════════════════════════════
+    //  STATE LOGIC MỚI (REAL-TIME ENGINE)
+    // ══════════════════════════════════════════
+    let events = [];
+    let nodes = {};
+    let latestSimTime = 0;
+    let currentTime = 0;
+    let rtLoopActive = false;
+    let lastWallTime = Date.now();
+    let hasCenteredCamera = false;
+    const FADE_WINDOW = 0.5;
+
+    const latestStates = {};
+    const latestWinners = {};
+    const nodeToSrc = {};
+    const activeContentions = {};
+
+    // ══════════════════════════════════════════
+    //  D3 SETUP
+    // ══════════════════════════════════════════
+    const svg = d3.select("#svg");
+    const zoomLayer = d3.select("#zoom-layer");
+    const nodeLayer = d3.select("#node-layer");
+    const edgeLayer = d3.select("#edge-layer");
+    const effectLayer = d3.select("#effect-layer");
+    let currentInvK = 1;
+
+    const zoom = d3.zoom().scaleExtent([0.05, 20]).on("zoom", (e) => {
+      currentInvK = 1 / e.transform.k;
+      zoomLayer.attr("transform", e.transform);
+      drawDynamicGrid(e.transform);
+      nodeLayer.selectAll(".node-bg").attr("r", 15 * currentInvK).attr("stroke-width", 2 * currentInvK);
+      nodeLayer.selectAll("text").attr("font-size", 12 * currentInvK).attr("y", 4 * currentInvK);
+    });
+    svg.call(zoom);
+
+    function drawDynamicGrid(transform) {
+      const svgEl = document.getElementById("svg");
+      const width = svgEl.clientWidth || 1000, height = svgEl.clientHeight || 800;
+      const xMin = (-transform.x) / transform.k, xMax = (width - transform.x) / transform.k;
+      const yMin = (-transform.y) / transform.k, yMax = (height - transform.y) / transform.k;
+      let step = transform.k <= 0.1 ? 1000 : transform.k <= 0.5 ? 200 : transform.k <= 2 ? 100 : transform.k <= 5 ? 20 : 10;
+
+      const gridLayer = d3.select("#grid-layer");
+      gridLayer.selectAll("*").remove();
+
+      const startX = Math.floor(xMin / step) * step, endX = Math.ceil(xMax / step) * step;
+      const startY = Math.floor(yMin / step) * step, endY = Math.ceil(yMax / step) * step;
+
+      for (let x = startX; x <= endX; x += step) {
+        gridLayer.append("line").attr("x1", x).attr("y1", startY).attr("x2", x).attr("y2", endY)
+          .attr("stroke", x === 0 ? "#95a5a6" : "#ecf0f1").attr("stroke-width", x === 0 ? 2 * currentInvK : 1 * currentInvK)
+          .attr("stroke-dasharray", x === 0 ? "" : `${5 * currentInvK},${5 * currentInvK}`);
+      }
+      for (let y = startY; y <= endY; y += step) {
+        gridLayer.append("line").attr("x1", startX).attr("y1", y).attr("x2", endX).attr("y2", y)
+          .attr("stroke", y === 0 ? "#95a5a6" : "#ecf0f1").attr("stroke-width", y === 0 ? 2 * currentInvK : 1 * currentInvK)
+          .attr("stroke-dasharray", y === 0 ? "" : `${5 * currentInvK},${5 * currentInvK}`);
+      }
+    }
+
+    // ══════════════════════════════════════════
+    //  PARSER VÀ INGEST
+    // ══════════════════════════════════════════
+    function parseLine(line) {
+      if (!line.includes("EVENT:")) return null;
+      const match = line.match(/^([\d.]+)\s+.*?EVENT:([^|]+)\|(.*)$/);
+      if (!match) return null;
+      const evObj = { time: parseFloat(match[1]), event: match[2].trim() };
+      match[3].trim().split("|").forEach(item => {
+        if (!item.includes(":")) return;
+        const colon = item.indexOf(":");
+        const k = item.slice(0, colon).trim().toLowerCase();
+        const v = item.slice(colon + 1).trim();
+        evObj[k] = (isNaN(v) || v === '') ? v : parseFloat(v);
+      });
+      return evObj;
+    }
+
+    function ingestEvent(ev) {
+      events.push(ev);
+
+      if (ev.event === "POS" && ev.node != null && !nodes[ev.node]) {
+        nodes[ev.node] = { x: ev.x, y: -(ev.y || 0) };
+        drawNodes();
+      }
+
+      if (ev.event === "STATE" && ev.node !== undefined) {
+        latestStates[ev.node] = ev.state;
+        if (ev.state === "IDLE" || ev.state === "WAIT_CTB") latestWinners[ev.node] = false;
+      }
+      if (ev.event === "WINNER" && ev.node !== undefined) latestWinners[ev.node] = true;
+      if (ev.event === "RCV_DATA" && ev.status === "SUCCESS" && ev.node !== undefined) latestWinners[ev.node] = false;
+
+      if (ev.event === "JOIN_BPAB" && ev.node !== undefined && ev.src !== undefined) {
+        nodeToSrc[ev.node] = ev.src;
+        if (!activeContentions[ev.src]) activeContentions[ev.src] = {};
+        activeContentions[ev.src] = {
+          direction: ev.dir || ev.Dir || "EAST",
+          maxR: parseFloat(ev.maxr || ev.MaxR || 300),
+          widthW: parseFloat(ev.width || ev.Width || 50),
+          l: 0, u: parseFloat(ev.maxr || ev.MaxR || 300)
+        };
+      }
+      if (ev.event === "CONTENSION_ROUND" && ev.node !== undefined && ev.range !== undefined) {
+        const src = nodeToSrc[ev.node];
+        if (src !== undefined) {
+          const m = String(ev.range).match(/\[([\d.]+)\s*,\s*([\d.]+)\]/);
+          if (m) {
+            activeContentions[src].l = parseFloat(m[1]);
+            activeContentions[src].u = parseFloat(m[2]);
+            activeContentions[src].time = ev.time;
+            activeContentions[src].round = parseInt(ev.round || 0);
+          }
+        }
+      }
+    }
+
+    function drawNodes() {
+      const nodeData = Object.entries(nodes);
+      const groups = nodeLayer.selectAll("g").data(nodeData, d => d[0]);
+
+      const enterGroups = groups.enter().append("g")
+        .attr("transform", d => `translate(${d[1].x}, ${d[1].y})`);
+
+      enterGroups.append("circle").attr("class", "node-bg")
+        .attr("r", 15 * currentInvK).attr("fill", "#bdc3c7")
+        .attr("stroke", "#7f8c8d").attr("stroke-width", 2 * currentInvK);
+
+      enterGroups.append("text")
+        .text(d => d[0]).attr("y", 4 * currentInvK)
+        .attr("text-anchor", "middle").attr("font-size", 12 * currentInvK)
+        .attr("fill", "white").attr("font-weight", "bold");
+
+      if (!hasCenteredCamera && nodeData.length > 0) {
+        svg.call(zoom.transform, d3.zoomIdentity.translate(200, 200).scale(1.2));
+        hasCenteredCamera = true;
+      }
+    }
+
+    function getStateColor(state, winner) {
+      if (winner) return "#ffd700";
+      if (state === "CONTENDING") return "#f1c40f";
+      if (state && state.includes("WAIT")) return "#3498db";
+      if (state === "PRE_CTB") return "#e67e22";
+      return "#bdc3c7";
+    }
+
+    // ══════════════════════════════════════════
+    //  RENDER ENGINE
+    // ══════════════════════════════════════════
+    function renderEngine() {
+      if (!rtLoopActive) return;
+
+      const now = Date.now();
+      const dt = (now - lastWallTime) / 1000;
+      lastWallTime = now;
+
+      if (currentTime < latestSimTime) currentTime = latestSimTime;
+      else currentTime += dt;
+
+      document.getElementById("timeLabel").innerText = currentTime.toFixed(3) + " s";
+
+      nodeLayer.selectAll("g").each(function (d) {
+        const nid = parseInt(d[0]);
+        d3.select(this).select("circle").attr("fill", getStateColor(latestStates[nid], latestWinners[nid]));
+      });
+
+      const activeEvents = events.filter(e => e.time <= currentTime && e.time > currentTime - FADE_WINDOW);
+
+      effectLayer.selectAll("*").remove();
+      edgeLayer.selectAll("*").remove();
+
+      Object.keys(activeContentions).forEach(srcId => {
+        const cont = activeContentions[srcId];
+        if (!cont.time) return;
+        const age = currentTime - cont.time;
+        if (age < 0 || age >= 0.8) return;
+
+        const srcNode = nodes[srcId]; if (!srcNode) return;
+        const alpha = Math.max(0, 1 - age / 0.8);
+        const L = cont.l, U = cont.u, Mid = (L + U) / 2;
+        const direction = (cont.direction || "EAST").toUpperCase();
+        const MaxR = cont.maxR || 300, W = cont.widthW || 50;
+
+        let base = {}, elimLower = {}, elimUpper = {}, activeRect = {}, midLine = {}, textPos = {};
+        switch (direction) {
+          case 'EAST':
+            base = { x: srcNode.x, y: srcNode.y - W / 2, w: MaxR, h: W };
+            elimLower = { x: srcNode.x, y: srcNode.y - W / 2, w: L, h: W };
+            elimUpper = { x: srcNode.x + U, y: srcNode.y - W / 2, w: Math.max(0, MaxR - U), h: W };
+            activeRect = { x: srcNode.x + L, y: srcNode.y - W / 2, w: U - L, h: W };
+            midLine = { x1: srcNode.x + Mid, y1: srcNode.y - W / 2, x2: srcNode.x + Mid, y2: srcNode.y + W / 2 };
+            textPos = { x: srcNode.x + MaxR + 25 * currentInvK, y: srcNode.y };
+            break;
+          case 'WEST':
+            base = { x: srcNode.x - MaxR, y: srcNode.y - W / 2, w: MaxR, h: W };
+            elimLower = { x: srcNode.x - L, y: srcNode.y - W / 2, w: L, h: W };
+            elimUpper = { x: srcNode.x - MaxR, y: srcNode.y - W / 2, w: Math.max(0, MaxR - U), h: W };
+            activeRect = { x: srcNode.x - U, y: srcNode.y - W / 2, w: U - L, h: W };
+            midLine = { x1: srcNode.x - Mid, y1: srcNode.y - W / 2, x2: srcNode.x - Mid, y2: srcNode.y + W / 2 };
+            textPos = { x: srcNode.x - MaxR - 25 * currentInvK, y: srcNode.y };
+            break;
+          case 'NORTH':
+            base = { x: srcNode.x - W / 2, y: srcNode.y - MaxR, w: W, h: MaxR };
+            elimLower = { x: srcNode.x - W / 2, y: srcNode.y - L, w: W, h: L };
+            elimUpper = { x: srcNode.x - W / 2, y: srcNode.y - MaxR, w: W, h: Math.max(0, MaxR - U) };
+            activeRect = { x: srcNode.x - W / 2, y: srcNode.y - U, w: W, h: U - L };
+            midLine = { x1: srcNode.x - W / 2, y1: srcNode.y - Mid, x2: srcNode.x + W / 2, y2: srcNode.y - Mid };
+            textPos = { x: srcNode.x, y: srcNode.y - MaxR - 15 * currentInvK };
+            break;
+          case 'SOUTH':
+            base = { x: srcNode.x - W / 2, y: srcNode.y, w: W, h: MaxR };
+            elimLower = { x: srcNode.x - W / 2, y: srcNode.y, w: W, h: L };
+            elimUpper = { x: srcNode.x - W / 2, y: srcNode.y + U, w: W, h: Math.max(0, MaxR - U) };
+            activeRect = { x: srcNode.x - W / 2, y: srcNode.y + L, w: W, h: U - L };
+            midLine = { x1: srcNode.x - W / 2, y1: srcNode.y + Mid, x2: srcNode.x + W / 2, y2: srcNode.y + Mid };
+            textPos = { x: srcNode.x, y: srcNode.y + MaxR + 15 * currentInvK };
+            break;
+        }
+
+        const drawRect = (r, fill, stroke, dash) => {
+          if (!r || r.w <= 0 || r.h <= 0) return;
+          effectLayer.append("rect").attr("x", r.x).attr("y", r.y).attr("width", r.w).attr("height", r.h)
+            .attr("fill", fill || "none").attr("stroke", stroke || "none").attr("stroke-width", stroke ? 1.5 * currentInvK : 0)
+            .attr("stroke-dasharray", dash || "").attr("opacity", alpha);
+        };
+
+        drawRect(base, "none", "#34495e", `${4 * currentInvK},${4 * currentInvK}`);
+        drawRect(activeRect, "rgba(46,204,113,0.2)", null);
+        drawRect(elimLower, "rgba(189,195,199,0.65)", null);
+        drawRect(elimUpper, "rgba(189,195,199,0.65)", null);
+
+        if (midLine.x1) {
+          effectLayer.append("line").attr("x1", midLine.x1).attr("y1", midLine.y1).attr("x2", midLine.x2).attr("y2", midLine.y2)
+            .attr("stroke", "#e74c3c").attr("stroke-width", 2.5 * currentInvK).attr("opacity", alpha);
+          effectLayer.append("text").attr("x", textPos.x).attr("y", textPos.y)
+            .text(`${direction} R${cont.round}: [${L.toFixed(0)} - ${U.toFixed(0)}]`)
+            .attr("fill", "#27ae60").attr("font-size", 12 * currentInvK).attr("font-weight", "bold")
+            .attr("text-anchor", "middle").attr("opacity", alpha);
+        }
+      });
+
+      activeEvents.forEach(e => {
+        const age = currentTime - e.time;
+        const alpha = 1 - age / FADE_WINDOW;
+
+        if (e.event.includes("SEND_BB")) {
+          const src = nodes[e.node]; if (!src) return;
+          [1, 2, 3].forEach(i => {
+            effectLayer.append("circle").attr("cx", src.x).attr("cy", src.y).attr("r", 20 * i + age * 200)
+              .attr("fill", "none").attr("stroke", "black").attr("stroke-width", 2).attr("opacity", alpha * (0.6 - i * 0.1));
+          });
+        }
+
+        if (e.event === "SEND" || e.event === "SEND_DATA") {
+          const srcId = e.from !== undefined ? e.from : e.node;
+          const src = nodes[srcId]; if (!src) return;
+          const pType = (e.type || "DATA").toUpperCase();
+          let color = "#3498db", marker = "url(#arrow-blue)";
+          if (pType.includes("CTB")) { color = "#f1c40f"; marker = "url(#arrow-yellow)"; }
+          if (pType.includes("DATA") || e.event === "SEND_DATA") { color = "#2ecc71"; marker = "url(#arrow-green)"; }
+          const destStr = String(e.to || "").toUpperCase();
+
+          if (destStr === "BROADCAST") {
+            [1, 2].forEach(i => {
+              effectLayer.append("circle").attr("cx", src.x).attr("cy", src.y).attr("r", 40 * i + age * 300)
+                .attr("fill", "none").attr("stroke", color).attr("stroke-width", pType.includes("CTB") ? 3 : 1.5)
+                .attr("stroke-dasharray", pType.includes("CTB") ? "10,5" : "5,5").attr("opacity", alpha * (1 - i * 0.2));
+            });
+          } else if (destStr !== "") {
+            const dest = nodes[parseInt(destStr)]; if (!dest) return;
+            const dx = dest.x - src.x, dy = dest.y - src.y;
+            const dist = Math.sqrt(dx * dx + dy * dy); if (!dist) return;
+            const tx = dest.x - (dx / dist) * 18 * currentInvK, ty = dest.y - (dy / dist) * 18 * currentInvK;
+            edgeLayer.append("line").attr("x1", src.x).attr("y1", src.y).attr("x2", tx).attr("y2", ty)
+              .attr("stroke", color).attr("stroke-width", 2 * currentInvK).attr("opacity", alpha).attr("marker-end", marker);
+          }
+        }
+      });
+
+      requestAnimationFrame(renderEngine);
+    }
+
+    // ══════════════════════════════════════════
+    //  WEBSOCKET CLIENT
+    // ══════════════════════════════════════════
+    let ws = null;
+    const statusEl = document.getElementById("ws-status");
+    const barStatus = document.getElementById("barStatus");
+    const rtConsole = document.getElementById("rtConsole");
+    const eventListDiv = document.getElementById("eventList");
+
+    function logToConsole(msg, isEvent = false) {
+      if (isEvent) {
+        const div = document.createElement("div");
+        div.className = msg.includes("WINNER") ? "event-line highlight" : "event-line";
+        div.textContent = msg;
+        eventListDiv.prepend(div);
+        if (eventListDiv.children.length > 50) eventListDiv.removeChild(eventListDiv.lastChild);
+      } else {
+        const span = document.createElement("span");
+        span.textContent = msg + "\n";
+        rtConsole.appendChild(span);
+        rtConsole.scrollTop = rtConsole.scrollHeight;
+        if (rtConsole.childElementCount > 100) rtConsole.removeChild(rtConsole.firstChild);
+      }
+    }
+
+    function setWsUI(cls, text, barText, barColor) {
+      statusEl.className = cls; statusEl.textContent = text;
+      barStatus.textContent = barText; barStatus.style.color = barColor;
+    }
+
+    function connectWS() {
+      if (ws) return;
+      setWsUI("ws-connecting", "⏳ Đang kết nối...", "CONNECTING...", "#f1c40f");
+      ws = new WebSocket("ws://localhost:8080");
+
+      ws.onopen = () => {
+        setWsUI("ws-connected", "🟢 Đã kết nối", "MONITORING LIVE", "#2ecc71");
+        logToConsole("=== ĐÃ KẾT NỐI SERVER THÀNH CÔNG. CHỜ DỮ LIỆU CASTALIA... ===");
+        document.getElementById("btnStartRT").style.display = "none";
+        document.getElementById("btnStopRT").style.display = "inline-block";
+
+        if (!rtLoopActive) {
+          rtLoopActive = true;
+          lastWallTime = Date.now();
+          requestAnimationFrame(renderEngine);
+        }
+      };
+
+      ws.onmessage = (msg) => {
+        const raw = msg.data;
+        logToConsole(raw.trim());
+
+        raw.split('\n').forEach(line => {
+          line = line.trim(); if (!line) return;
+
+          let parseable = line;
+          if (/^[\d.]+\s+MAC\s+EVENT:/.test(line)) {
+            parseable = line.replace(/^([\d.]+)\s+MAC\s+(EVENT:.*)$/, "$1    SN.node.Communication.MAC    $2");
+          }
+
+          const ev = parseLine(parseable);
+          if (!ev) return;
+
+          latestSimTime = ev.time;
+          ingestEvent(ev);
+          logToConsole(`[${ev.time.toFixed(3)}] Node ${ev.node ?? ev.from ?? '-'}: ${ev.event}`, true);
+        });
+      };
+
+      ws.onclose = () => {
+        rtLoopActive = false;
+        ws = null;
+        setWsUI("ws-disconnected", "🔴 Mất kết nối. Thử lại...", "DISCONNECTED", "#e74c3c");
+        setTimeout(connectWS, 3000);
+      };
+    }
+
+    function disconnectWS() {
+      if (ws) { ws.onclose = null; ws.close(); ws = null; }
+      rtLoopActive = false;
+      setWsUI("ws-disconnected", "⛔ Đã dừng", "STOPPED", "#e74c3c");
+      document.getElementById("btnStartRT").style.display = "inline-block";
+      document.getElementById("btnStopRT").style.display = "none";
+    }
+
+    document.getElementById("btnStartRT").addEventListener("click", connectWS);
+    document.getElementById("btnStopRT").addEventListener("click", disconnectWS);
+
+    // Tự động chạy
+    connectWS();
+  </script>
+</body>
+
+</html>

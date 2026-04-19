@@ -1,0 +1,465 @@
+
+0.003536244016    SN.node[1].Communication.MAC             EVENT:POS | Node:1 | x:300 | y:0
+0.006066428963    SN.node[5].Communication.MAC             EVENT:POS | Node:5 | x:300 | y:40
+0.014545237179    SN.node[4].Communication.MAC             EVENT:POS | Node:4 | x:300 | y:30
+0.025541380047    SN.node[6].Communication.MAC             EVENT:POS | Node:6 | x:300 | y:50
+0.027539895218    SN.node[0].Communication.MAC             EVENT:POS | Node:0 | x:100 | y:0
+0.035407391109    SN.node[2].Communication.MAC             EVENT:POS | Node:2 | x:300 | y:10
+0.041997452115    SN.node[3].Communication.MAC             EVENT:POS | Node:3 | x:300 | y:20
+1.152487988701    SN.node[0].Application                   Sensed = 1.655
+1.152487988701    SN.node[0].Application                   Sending [Value reporting pck] of size 20 bytes to communication layer
+1.152487988701    SN.node[0].Communication.MAC             EVENT:SEND | Type:RTB | From:0 | To:BROADCAST
+1.152487988701    SN.node[0].Communication.MAC             EVENT:STATE | Node:0 | State:WAIT_CTB
+1.152587994699    SN.node[0].Communication.MAC             EVENT:RADIO_STATE | Node:0 | Mode:RX | Goal:LISTEN_CTB
+1.1530199887      SN.node[1].Communication.MAC             EVENT:RCV | Type:RTB | From:0 | To:1
+1.1530199887      SN.node[1].Communication.MAC             EVENT:DEBUG_FILTER | Node:1 | dx:200 | dy:0 | Dir:1
+1.1530199887      SN.node[1].Communication.MAC             EVENT:JOIN_BPAB | Node:1 | Src:0 | Dir:EAST | MaxR:300 | Width:50
+1.1530199887      SN.node[1].Communication.MAC             EVENT:STATE | Node:1 | State:CONTENDING
+1.1530199887      SN.node[2].Communication.MAC             EVENT:RCV | Type:RTB | From:0 | To:2
+1.1530199887      SN.node[2].Communication.MAC             EVENT:DEBUG_FILTER | Node:2 | dx:200.001 | dy:9.96669 | Dir:1
+1.1530199887      SN.node[2].Communication.MAC             EVENT:JOIN_BPAB | Node:2 | Src:0 | Dir:EAST | MaxR:300 | Width:50
+1.1530199887      SN.node[2].Communication.MAC             EVENT:STATE | Node:2 | State:CONTENDING
+1.1530199887      SN.node[3].Communication.MAC             EVENT:RCV | Type:RTB | From:0 | To:3
+1.1530199887      SN.node[3].Communication.MAC             EVENT:DEBUG_FILTER | Node:3 | dx:200.002 | dy:19.9335 | Dir:1
+1.1530199887      SN.node[3].Communication.MAC             EVENT:JOIN_BPAB | Node:3 | Src:0 | Dir:EAST | MaxR:300 | Width:50
+1.1530199887      SN.node[3].Communication.MAC             EVENT:STATE | Node:3 | State:CONTENDING
+1.1530199887      SN.node[4].Communication.MAC             EVENT:RCV | Type:RTB | From:0 | To:4
+1.1530199887      SN.node[4].Communication.MAC             EVENT:DEBUG_FILTER | Node:4 | dx:200.005 | dy:29.9005 | Dir:1
+1.1530199887      SN.node[4].Communication.MAC             EVENT:FILTER | Node:4 | Status:WRONG_DIRECTION
+1.1530199887      SN.node[5].Communication.MAC             EVENT:RCV | Type:RTB | From:0 | To:5
+1.1530199887      SN.node[5].Communication.MAC             EVENT:DEBUG_FILTER | Node:5 | dx:200.009 | dy:39.8678 | Dir:1
+1.1530199887      SN.node[5].Communication.MAC             EVENT:FILTER | Node:5 | Status:WRONG_DIRECTION
+1.1530199887      SN.node[6].Communication.MAC             EVENT:RCV | Type:RTB | From:0 | To:6
+1.1530199887      SN.node[6].Communication.MAC             EVENT:DEBUG_FILTER | Node:6 | dx:200.014 | dy:49.8356 | Dir:1
+1.1530199887      SN.node[6].Communication.MAC             EVENT:FILTER | Node:6 | Status:WRONG_DIRECTION
+1.203019688793    SN.node[3].Communication.MAC             EVENT:CONTENSION_ROUND | Round:0 | Node:3 | Range:[0,300]
+1.203019688793    SN.node[3].Communication.MAC             EVENT:SEND_BB | Node:3 | Dist:200.002
+1.203020328648    SN.node[1].Communication.MAC             EVENT:CONTENSION_ROUND | Round:0 | Node:1 | Range:[0,300]
+1.203020328648    SN.node[1].Communication.MAC             EVENT:SEND_BB | Node:1 | Dist:200
+1.203022548345    SN.node[2].Communication.MAC             EVENT:CONTENSION_ROUND | Round:0 | Node:2 | Range:[0,300]
+1.203022548345    SN.node[2].Communication.MAC             EVENT:SEND_BB | Node:2 | Dist:200.001
+1.253019388886    SN.node[3].Communication.MAC             EVENT:ITERATION_KEEP | Node:3 | Round:0 | Action:SHRINK_LOWER
+1.253020668596    SN.node[1].Communication.MAC             EVENT:ITERATION_KEEP | Node:1 | Round:0 | Action:SHRINK_LOWER
+1.25302510799     SN.node[2].Communication.MAC             EVENT:ITERATION_KEEP | Node:2 | Round:0 | Action:SHRINK_LOWER
+1.303019088979    SN.node[3].Communication.MAC             EVENT:CONTENSION_ROUND | Round:1 | Node:3 | Range:[150,300]
+1.303019088979    SN.node[3].Communication.MAC             EVENT:LISTEN_BB | Node:3
+1.303021008544    SN.node[1].Communication.MAC             EVENT:CONTENSION_ROUND | Round:1 | Node:1 | Range:[150,300]
+1.303021008544    SN.node[1].Communication.MAC             EVENT:LISTEN_BB | Node:1
+1.303027667635    SN.node[2].Communication.MAC             EVENT:CONTENSION_ROUND | Round:1 | Node:2 | Range:[150,300]
+1.303027667635    SN.node[2].Communication.MAC             EVENT:LISTEN_BB | Node:2
+1.353018789072    SN.node[3].Communication.MAC             EVENT:ITERATION_KEEP | Node:3 | Round:1 | Action:SHRINK_UPPER
+1.353021348492    SN.node[1].Communication.MAC             EVENT:ITERATION_KEEP | Node:1 | Round:1 | Action:SHRINK_UPPER
+1.35303022728     SN.node[2].Communication.MAC             EVENT:ITERATION_KEEP | Node:2 | Round:1 | Action:SHRINK_UPPER
+1.403018489165    SN.node[3].Communication.MAC             EVENT:CONTENSION_ROUND | Round:2 | Node:3 | Range:[150,225]
+1.403018489165    SN.node[3].Communication.MAC             EVENT:SEND_BB | Node:3 | Dist:200.002
+1.40302168844     SN.node[1].Communication.MAC             EVENT:CONTENSION_ROUND | Round:2 | Node:1 | Range:[150,225]
+1.40302168844     SN.node[1].Communication.MAC             EVENT:SEND_BB | Node:1 | Dist:200
+1.403032786925    SN.node[2].Communication.MAC             EVENT:CONTENSION_ROUND | Round:2 | Node:2 | Range:[150,225]
+1.403032786925    SN.node[2].Communication.MAC             EVENT:SEND_BB | Node:2 | Dist:200.001
+1.453018189258    SN.node[3].Communication.MAC             EVENT:ITERATION_KEEP | Node:3 | Round:2 | Action:SHRINK_LOWER
+1.453022028388    SN.node[1].Communication.MAC             EVENT:ITERATION_KEEP | Node:1 | Round:2 | Action:SHRINK_LOWER
+1.45303534657     SN.node[2].Communication.MAC             EVENT:ITERATION_KEEP | Node:2 | Round:2 | Action:SHRINK_LOWER
+1.503017889351    SN.node[3].Communication.MAC             EVENT:CONTENSION_ROUND | Round:3 | Node:3 | Range:[187.5,225]
+1.503017889351    SN.node[3].Communication.MAC             EVENT:LISTEN_BB | Node:3
+1.503022368336    SN.node[1].Communication.MAC             EVENT:CONTENSION_ROUND | Round:3 | Node:1 | Range:[187.5,225]
+1.503022368336    SN.node[1].Communication.MAC             EVENT:LISTEN_BB | Node:1
+1.503037906215    SN.node[2].Communication.MAC             EVENT:CONTENSION_ROUND | Round:3 | Node:2 | Range:[187.5,225]
+1.503037906215    SN.node[2].Communication.MAC             EVENT:LISTEN_BB | Node:2
+1.553017589444    SN.node[3].Communication.MAC             EVENT:ITERATION_KEEP | Node:3 | Round:3 | Action:SHRINK_UPPER
+1.553022708284    SN.node[1].Communication.MAC             EVENT:ITERATION_KEEP | Node:1 | Round:3 | Action:SHRINK_UPPER
+1.55304046586     SN.node[2].Communication.MAC             EVENT:ITERATION_KEEP | Node:2 | Round:3 | Action:SHRINK_UPPER
+1.603017289537    SN.node[3].Communication.MAC             EVENT:WINNER_FINAL | Node:3 | Rounds:4
+1.603017289537    SN.node[3].Communication.MAC             EVENT:WINNER | Node:3 | Backoff:0.145054
+1.603017289537    SN.node[3].Communication.MAC             EVENT:STATE | Node:3 | State:PRE_CTB
+1.603023048232    SN.node[1].Communication.MAC             EVENT:WINNER_FINAL | Node:1 | Rounds:4
+1.603023048232    SN.node[1].Communication.MAC             EVENT:WINNER | Node:1 | Backoff:0.135093
+1.603023048232    SN.node[1].Communication.MAC             EVENT:STATE | Node:1 | State:PRE_CTB
+1.603043025505    SN.node[2].Communication.MAC             EVENT:WINNER_FINAL | Node:2 | Rounds:4
+1.603043025505    SN.node[2].Communication.MAC             EVENT:WINNER | Node:2 | Backoff:0.0820848
+1.603043025505    SN.node[2].Communication.MAC             EVENT:STATE | Node:2 | State:PRE_CTB
+1.685132065653    SN.node[2].Communication.MAC             EVENT:SEND | Type:CTB | From:2 | To:BROADCAST
+1.685132065653    SN.node[2].Communication.MAC             EVENT:STATE | Node:2 | State:WAIT_DATA
+1.685232070772    SN.node[2].Communication.MAC             EVENT:RADIO_STATE | Node:2 | Mode:RX | Goal:WAIT_DATA
+1.685376065652    SN.node[0].Communication.MAC             EVENT:RCV_CTB | From:2 | To:0
+1.685376065652    SN.node[0].Communication.MAC             EVENT:SEND_DATA | From:0 | To:2
+1.685376065652    SN.node[0].Communication.MAC             EVENT:STATE | Node:0 | State:IDLE | Reason:DATA_SENT_SUCCESS
+1.685376065652    SN.node[1].Communication.MAC             EVENT:RCV_CTB | From:2 | To:1
+1.685376065652    SN.node[1].Communication.MAC             EVENT:BACKDOWN | Node:1 | Reason:HEARD_OTHER_CTB
+1.685376065652    SN.node[3].Communication.MAC             EVENT:RCV_CTB | From:2 | To:3
+1.685376065652    SN.node[3].Communication.MAC             EVENT:BACKDOWN | Node:3 | Reason:HEARD_OTHER_CTB
+1.685376065652    SN.node[4].Communication.MAC             EVENT:RCV_CTB | From:2 | To:4
+1.685376065652    SN.node[4].Communication.MAC             EVENT:RCV_CTB | Status:IGNORED | Node:4
+1.685376065652    SN.node[5].Communication.MAC             EVENT:RCV_CTB | From:2 | To:5
+1.685376065652    SN.node[5].Communication.MAC             EVENT:RCV_CTB | Status:IGNORED | Node:5
+1.685376065652    SN.node[6].Communication.MAC             EVENT:RCV_CTB | From:2 | To:6
+1.685376065652    SN.node[6].Communication.MAC             EVENT:RCV_CTB | Status:IGNORED | Node:6
+1.687508065651    SN.node[1].Communication.MAC             EVENT:RCV_DATA | Status:IGNORE | Node:1
+1.687508065651    SN.node[2].Communication.MAC             EVENT:RCV_DATA | Status:SUCCESS | Node:2
+1.687508065651    SN.node[2].Communication.MAC             EVENT:SEND | Type:RTB | From:2 | To:BROADCAST
+1.687508065651    SN.node[2].Communication.MAC             EVENT:STATE | Node:2 | State:WAIT_CTB
+1.687508065651    SN.node[3].Communication.MAC             EVENT:RCV_DATA | Status:IGNORE | Node:3
+1.687508065651    SN.node[4].Communication.MAC             EVENT:RCV_DATA | Status:IGNORE | Node:4
+1.687508065651    SN.node[5].Communication.MAC             EVENT:RCV_DATA | Status:IGNORE | Node:5
+1.687508065651    SN.node[6].Communication.MAC             EVENT:RCV_DATA | Status:IGNORE | Node:6
+1.68760807077     SN.node[2].Communication.MAC             EVENT:RADIO_STATE | Node:2 | Mode:RX | Goal:LISTEN_CTB
+1.68804006565     SN.node[0].Communication.MAC             EVENT:RCV | Type:RTB | From:2 | To:0
+1.68804006565     SN.node[0].Communication.MAC             EVENT:DEBUG_FILTER | Node:0 | dx:-200.001 | dy:-9.96669 | Dir:1
+1.68804006565     SN.node[0].Communication.MAC             EVENT:FILTER | Node:0 | Status:WRONG_DIRECTION
+1.68804006565     SN.node[1].Communication.MAC             EVENT:RCV | Type:RTB | From:2 | To:1
+1.68804006565     SN.node[1].Communication.MAC             EVENT:DEBUG_FILTER | Node:1 | dx:-0.000555093 | dy:-9.96669 | Dir:1
+1.68804006565     SN.node[1].Communication.MAC             EVENT:FILTER | Node:1 | Status:WRONG_DIRECTION
+1.68804006565     SN.node[3].Communication.MAC             EVENT:RCV | Type:RTB | From:2 | To:3
+1.68804006565     SN.node[3].Communication.MAC             EVENT:DEBUG_FILTER | Node:3 | dx:0.00165975 | dy:9.9668 | Dir:1
+1.68804006565     SN.node[3].Communication.MAC             EVENT:FILTER | Node:3 | Status:WRONG_DIRECTION
+1.68804006565     SN.node[4].Communication.MAC             EVENT:RCV | Type:RTB | From:2 | To:4
+1.68804006565     SN.node[4].Communication.MAC             EVENT:DEBUG_FILTER | Node:4 | dx:0.00440772 | dy:19.9338 | Dir:1
+1.68804006565     SN.node[4].Communication.MAC             EVENT:FILTER | Node:4 | Status:WRONG_DIRECTION
+1.68804006565     SN.node[5].Communication.MAC             EVENT:RCV | Type:RTB | From:2 | To:5
+1.68804006565     SN.node[5].Communication.MAC             EVENT:DEBUG_FILTER | Node:5 | dx:0.00821701 | dy:29.9012 | Dir:1
+1.68804006565     SN.node[5].Communication.MAC             EVENT:FILTER | Node:5 | Status:WRONG_DIRECTION
+1.68804006565     SN.node[6].Communication.MAC             EVENT:RCV | Type:RTB | From:2 | To:6
+1.68804006565     SN.node[6].Communication.MAC             EVENT:DEBUG_FILTER | Node:6 | dx:0.013051 | dy:39.8689 | Dir:1
+1.68804006565     SN.node[6].Communication.MAC             EVENT:FILTER | Node:6 | Status:WRONG_DIRECTION
+1.73811718493     SN.node[1].Communication.MAC             EVENT:STATE | Node:1 | State:IDLE | Reason:LOST_BACKOFF
+1.748070895234    SN.node[3].Communication.MAC             EVENT:STATE | Node:3 | State:IDLE | Reason:LOST_BACKOFF
+2.479827082763    SN.node[3].Application                   Sensed = 0.379
+2.479827082763    SN.node[3].Application                   Sending [Value reporting pck] of size 20 bytes to communication layer
+2.479827082763    SN.node[3].Communication.MAC             EVENT:SEND | Type:RTB | From:3 | To:BROADCAST
+2.479827082763    SN.node[3].Communication.MAC             EVENT:STATE | Node:3 | State:WAIT_CTB
+2.479927082163    SN.node[3].Communication.MAC             EVENT:RADIO_STATE | Node:3 | Mode:RX | Goal:LISTEN_CTB
+2.480359082762    SN.node[0].Communication.MAC             EVENT:RCV | Type:RTB | From:3 | To:0
+2.480359082762    SN.node[0].Communication.MAC             EVENT:DEBUG_FILTER | Node:0 | dx:-200.004 | dy:-19.867 | Dir:1
+2.480359082762    SN.node[0].Communication.MAC             EVENT:FILTER | Node:0 | Status:WRONG_DIRECTION
+2.480359082762    SN.node[1].Communication.MAC             EVENT:RCV | Type:RTB | From:3 | To:1
+2.480359082762    SN.node[1].Communication.MAC             EVENT:DEBUG_FILTER | Node:1 | dx:-0.00442968 | dy:-19.867 | Dir:1
+2.480359082762    SN.node[1].Communication.MAC             EVENT:FILTER | Node:1 | Status:WRONG_DIRECTION
+2.480359082762    SN.node[2].Communication.MAC             EVENT:RCV | Type:RTB | From:3 | To:2
+2.480359082762    SN.node[2].Communication.MAC             EVENT:DEBUG_FILTER | Node:2 | dx:-0.0033195 | dy:-9.93359 | Dir:1
+2.480359082762    SN.node[2].Communication.MAC             EVENT:FILTER | Node:2 | Status:WRONG_DIRECTION
+2.480359082762    SN.node[4].Communication.MAC             EVENT:RCV | Type:RTB | From:3 | To:4
+2.480359082762    SN.node[4].Communication.MAC             EVENT:DEBUG_FILTER | Node:4 | dx:0.00549594 | dy:9.93403 | Dir:1
+2.480359082762    SN.node[4].Communication.MAC             EVENT:FILTER | Node:4 | Status:WRONG_DIRECTION
+2.480359082762    SN.node[5].Communication.MAC             EVENT:RCV | Type:RTB | From:3 | To:5
+2.480359082762    SN.node[5].Communication.MAC             EVENT:DEBUG_FILTER | Node:5 | dx:0.0131145 | dy:19.8687 | Dir:1
+2.480359082762    SN.node[5].Communication.MAC             EVENT:FILTER | Node:5 | Status:WRONG_DIRECTION
+2.480359082762    SN.node[6].Communication.MAC             EVENT:RCV | Type:RTB | From:3 | To:6
+2.480359082762    SN.node[6].Communication.MAC             EVENT:DEBUG_FILTER | Node:6 | dx:0.0227825 | dy:29.8042 | Dir:1
+2.480359082762    SN.node[6].Communication.MAC             EVENT:FILTER | Node:6 | Status:WRONG_DIRECTION
+2.587554139273    SN.node[2].Communication.MAC             EVENT:RETRY | Node:2 | Count:1
+2.587554139273    SN.node[2].Communication.MAC             EVENT:SEND | Type:RTB | From:2 | To:BROADCAST
+2.587554139273    SN.node[2].Communication.MAC             EVENT:STATE | Node:2 | State:WAIT_CTB
+2.587654144392    SN.node[2].Communication.MAC             EVENT:RADIO_STATE | Node:2 | Mode:RX | Goal:LISTEN_CTB
+2.588086139272    SN.node[0].Communication.MAC             EVENT:RCV | Type:RTB | From:2 | To:0
+2.588086139272    SN.node[0].Communication.MAC             EVENT:DEBUG_FILTER | Node:0 | dx:-200.001 | dy:-9.93337 | Dir:1
+2.588086139272    SN.node[0].Communication.MAC             EVENT:FILTER | Node:0 | Status:WRONG_DIRECTION
+2.588086139272    SN.node[1].Communication.MAC             EVENT:RCV | Type:RTB | From:2 | To:1
+2.588086139272    SN.node[1].Communication.MAC             EVENT:DEBUG_FILTER | Node:1 | dx:-0.00111019 | dy:-9.93337 | Dir:1
+2.588086139272    SN.node[1].Communication.MAC             EVENT:FILTER | Node:1 | Status:WRONG_DIRECTION
+2.588086139272    SN.node[3].Communication.MAC             EVENT:RCV | Type:RTB | From:2 | To:3
+2.588086139272    SN.node[3].Communication.MAC             EVENT:DEBUG_FILTER | Node:3 | dx:0.0033195 | dy:9.93359 | Dir:1
+2.588086139272    SN.node[3].Communication.MAC             EVENT:FILTER | Node:3 | Status:WRONG_DIRECTION
+2.588086139272    SN.node[4].Communication.MAC             EVENT:RCV | Type:RTB | From:2 | To:4
+2.588086139272    SN.node[4].Communication.MAC             EVENT:DEBUG_FILTER | Node:4 | dx:0.00881543 | dy:19.8676 | Dir:1
+2.588086139272    SN.node[4].Communication.MAC             EVENT:FILTER | Node:4 | Status:WRONG_DIRECTION
+2.588086139272    SN.node[5].Communication.MAC             EVENT:RCV | Type:RTB | From:2 | To:5
+2.588086139272    SN.node[5].Communication.MAC             EVENT:DEBUG_FILTER | Node:5 | dx:0.016434 | dy:29.8023 | Dir:1
+2.588086139272    SN.node[5].Communication.MAC             EVENT:FILTER | Node:5 | Status:WRONG_DIRECTION
+2.588086139272    SN.node[6].Communication.MAC             EVENT:RCV | Type:RTB | From:2 | To:6
+2.588086139272    SN.node[6].Communication.MAC             EVENT:DEBUG_FILTER | Node:6 | dx:0.026102 | dy:39.7378 | Dir:1
+2.588086139272    SN.node[6].Communication.MAC             EVENT:FILTER | Node:6 | Status:WRONG_DIRECTION
+3.379821684449    SN.node[3].Communication.MAC             EVENT:RETRY | Node:3 | Count:1
+3.379821684449    SN.node[3].Communication.MAC             EVENT:SEND | Type:RTB | From:3 | To:BROADCAST
+3.379821684449    SN.node[3].Communication.MAC             EVENT:STATE | Node:3 | State:WAIT_CTB
+3.379921683849    SN.node[3].Communication.MAC             EVENT:RADIO_STATE | Node:3 | Mode:RX | Goal:LISTEN_CTB
+3.380353684448    SN.node[0].Communication.MAC             EVENT:RCV | Type:RTB | From:3 | To:0
+3.380353684448    SN.node[0].Communication.MAC             EVENT:DEBUG_FILTER | Node:0 | dx:-200.007 | dy:-19.8004 | Dir:1
+3.380353684448    SN.node[0].Communication.MAC             EVENT:FILTER | Node:0 | Status:WRONG_DIRECTION
+3.380353684448    SN.node[1].Communication.MAC             EVENT:RCV | Type:RTB | From:3 | To:1
+3.380353684448    SN.node[1].Communication.MAC             EVENT:DEBUG_FILTER | Node:1 | dx:-0.00664453 | dy:-19.8004 | Dir:1
+3.380353684448    SN.node[1].Communication.MAC             EVENT:FILTER | Node:1 | Status:WRONG_DIRECTION
+3.380353684448    SN.node[2].Communication.MAC             EVENT:RCV | Type:RTB | From:3 | To:2
+3.380353684448    SN.node[2].Communication.MAC             EVENT:DEBUG_FILTER | Node:2 | dx:-0.00497925 | dy:-9.90039 | Dir:1
+3.380353684448    SN.node[2].Communication.MAC             EVENT:FILTER | Node:2 | Status:WRONG_DIRECTION
+3.380353684448    SN.node[4].Communication.MAC             EVENT:RCV | Type:RTB | From:3 | To:4
+3.380353684448    SN.node[4].Communication.MAC             EVENT:DEBUG_FILTER | Node:4 | dx:0.0082439 | dy:9.90105 | Dir:1
+3.380353684448    SN.node[4].Communication.MAC             EVENT:FILTER | Node:4 | Status:WRONG_DIRECTION
+3.380353684448    SN.node[5].Communication.MAC             EVENT:RCV | Type:RTB | From:3 | To:5
+3.380353684448    SN.node[5].Communication.MAC             EVENT:DEBUG_FILTER | Node:5 | dx:0.0196718 | dy:19.8031 | Dir:1
+3.380353684448    SN.node[5].Communication.MAC             EVENT:FILTER | Node:5 | Status:WRONG_DIRECTION
+3.380353684448    SN.node[6].Communication.MAC             EVENT:RCV | Type:RTB | From:3 | To:6
+3.380353684448    SN.node[6].Communication.MAC             EVENT:DEBUG_FILTER | Node:6 | dx:0.0341737 | dy:29.7064 | Dir:1
+3.380353684448    SN.node[6].Communication.MAC             EVENT:FILTER | Node:6 | Status:WRONG_DIRECTION
+3.487600212895    SN.node[2].Communication.MAC             EVENT:RETRY | Node:2 | Count:2
+3.487600212895    SN.node[2].Communication.MAC             EVENT:SEND | Type:RTB | From:2 | To:BROADCAST
+3.487600212895    SN.node[2].Communication.MAC             EVENT:STATE | Node:2 | State:WAIT_CTB
+3.487700218014    SN.node[2].Communication.MAC             EVENT:RADIO_STATE | Node:2 | Mode:RX | Goal:LISTEN_CTB
+3.488132212894    SN.node[0].Communication.MAC             EVENT:RCV | Type:RTB | From:2 | To:0
+3.488132212894    SN.node[0].Communication.MAC             EVENT:DEBUG_FILTER | Node:0 | dx:-200.002 | dy:-9.90006 | Dir:1
+3.488132212894    SN.node[0].Communication.MAC             EVENT:FILTER | Node:0 | Status:WRONG_DIRECTION
+3.488132212894    SN.node[1].Communication.MAC             EVENT:RCV | Type:RTB | From:2 | To:1
+3.488132212894    SN.node[1].Communication.MAC             EVENT:DEBUG_FILTER | Node:1 | dx:-0.00166528 | dy:-9.90006 | Dir:1
+3.488132212894    SN.node[1].Communication.MAC             EVENT:FILTER | Node:1 | Status:WRONG_DIRECTION
+3.488132212894    SN.node[3].Communication.MAC             EVENT:RCV | Type:RTB | From:2 | To:3
+3.488132212894    SN.node[3].Communication.MAC             EVENT:DEBUG_FILTER | Node:3 | dx:0.00497925 | dy:9.90039 | Dir:1
+3.488132212894    SN.node[3].Communication.MAC             EVENT:FILTER | Node:3 | Status:WRONG_DIRECTION
+3.488132212894    SN.node[4].Communication.MAC             EVENT:RCV | Type:RTB | From:2 | To:4
+3.488132212894    SN.node[4].Communication.MAC             EVENT:DEBUG_FILTER | Node:4 | dx:0.0132232 | dy:19.8014 | Dir:1
+3.488132212894    SN.node[4].Communication.MAC             EVENT:FILTER | Node:4 | Status:WRONG_DIRECTION
+3.488132212894    SN.node[5].Communication.MAC             EVENT:RCV | Type:RTB | From:2 | To:5
+3.488132212894    SN.node[5].Communication.MAC             EVENT:DEBUG_FILTER | Node:5 | dx:0.024651 | dy:29.7035 | Dir:1
+3.488132212894    SN.node[5].Communication.MAC             EVENT:FILTER | Node:5 | Status:WRONG_DIRECTION
+3.488132212894    SN.node[6].Communication.MAC             EVENT:RCV | Type:RTB | From:2 | To:6
+3.488132212894    SN.node[6].Communication.MAC             EVENT:DEBUG_FILTER | Node:6 | dx:0.0391529 | dy:39.6067 | Dir:1
+3.488132212894    SN.node[6].Communication.MAC             EVENT:FILTER | Node:6 | Status:WRONG_DIRECTION
+4.279816286135    SN.node[3].Communication.MAC             EVENT:RETRY | Node:3 | Count:2
+4.279816286135    SN.node[3].Communication.MAC             EVENT:SEND | Type:RTB | From:3 | To:BROADCAST
+4.279816286135    SN.node[3].Communication.MAC             EVENT:STATE | Node:3 | State:WAIT_CTB
+4.279916285535    SN.node[3].Communication.MAC             EVENT:RADIO_STATE | Node:3 | Mode:RX | Goal:LISTEN_CTB
+4.280348286134    SN.node[0].Communication.MAC             EVENT:RCV | Type:RTB | From:3 | To:0
+4.280348286134    SN.node[0].Communication.MAC             EVENT:DEBUG_FILTER | Node:0 | dx:-200.009 | dy:-19.7339 | Dir:1
+4.280348286134    SN.node[0].Communication.MAC             EVENT:FILTER | Node:0 | Status:WRONG_DIRECTION
+4.280348286134    SN.node[1].Communication.MAC             EVENT:RCV | Type:RTB | From:3 | To:1
+4.280348286134    SN.node[1].Communication.MAC             EVENT:DEBUG_FILTER | Node:1 | dx:-0.00885937 | dy:-19.7339 | Dir:1
+4.280348286134    SN.node[1].Communication.MAC             EVENT:FILTER | Node:1 | Status:WRONG_DIRECTION
+4.280348286134    SN.node[2].Communication.MAC             EVENT:RCV | Type:RTB | From:3 | To:2
+4.280348286134    SN.node[2].Communication.MAC             EVENT:DEBUG_FILTER | Node:2 | dx:-0.006639 | dy:-9.86718 | Dir:1
+4.280348286134    SN.node[2].Communication.MAC             EVENT:FILTER | Node:2 | Status:WRONG_DIRECTION
+4.280348286134    SN.node[4].Communication.MAC             EVENT:RCV | Type:RTB | From:3 | To:4
+4.280348286134    SN.node[4].Communication.MAC             EVENT:DEBUG_FILTER | Node:4 | dx:0.0109919 | dy:9.86806 | Dir:1
+4.280348286134    SN.node[4].Communication.MAC             EVENT:FILTER | Node:4 | Status:WRONG_DIRECTION
+4.280348286134    SN.node[5].Communication.MAC             EVENT:RCV | Type:RTB | From:3 | To:5
+4.280348286134    SN.node[5].Communication.MAC             EVENT:DEBUG_FILTER | Node:5 | dx:0.026229 | dy:19.7374 | Dir:1
+4.280348286134    SN.node[5].Communication.MAC             EVENT:FILTER | Node:5 | Status:WRONG_DIRECTION
+4.280348286134    SN.node[6].Communication.MAC             EVENT:RCV | Type:RTB | From:3 | To:6
+4.280348286134    SN.node[6].Communication.MAC             EVENT:DEBUG_FILTER | Node:6 | dx:0.0455649 | dy:29.6085 | Dir:1
+4.280348286134    SN.node[6].Communication.MAC             EVENT:FILTER | Node:6 | Status:WRONG_DIRECTION
+4.387646286517    SN.node[2].Communication.MAC             EVENT:RETRY | Node:2 | Count:3
+4.387646286517    SN.node[2].Communication.MAC             EVENT:SEND | Type:RTB | From:2 | To:BROADCAST
+4.387646286517    SN.node[2].Communication.MAC             EVENT:STATE | Node:2 | State:WAIT_CTB
+4.387746291636    SN.node[2].Communication.MAC             EVENT:RADIO_STATE | Node:2 | Mode:RX | Goal:LISTEN_CTB
+4.388178286516    SN.node[0].Communication.MAC             EVENT:RCV | Type:RTB | From:2 | To:0
+4.388178286516    SN.node[0].Communication.MAC             EVENT:DEBUG_FILTER | Node:0 | dx:-200.002 | dy:-9.86674 | Dir:1
+4.388178286516    SN.node[0].Communication.MAC             EVENT:FILTER | Node:0 | Status:WRONG_DIRECTION
+4.388178286516    SN.node[1].Communication.MAC             EVENT:RCV | Type:RTB | From:2 | To:1
+4.388178286516    SN.node[1].Communication.MAC             EVENT:DEBUG_FILTER | Node:1 | dx:-0.00222037 | dy:-9.86674 | Dir:1
+4.388178286516    SN.node[1].Communication.MAC             EVENT:FILTER | Node:1 | Status:WRONG_DIRECTION
+4.388178286516    SN.node[3].Communication.MAC             EVENT:RCV | Type:RTB | From:2 | To:3
+4.388178286516    SN.node[3].Communication.MAC             EVENT:DEBUG_FILTER | Node:3 | dx:0.006639 | dy:9.86718 | Dir:1
+4.388178286516    SN.node[3].Communication.MAC             EVENT:FILTER | Node:3 | Status:WRONG_DIRECTION
+4.388178286516    SN.node[4].Communication.MAC             EVENT:RCV | Type:RTB | From:2 | To:4
+4.388178286516    SN.node[4].Communication.MAC             EVENT:DEBUG_FILTER | Node:4 | dx:0.0176309 | dy:19.7352 | Dir:1
+4.388178286516    SN.node[4].Communication.MAC             EVENT:FILTER | Node:4 | Status:WRONG_DIRECTION
+4.388178286516    SN.node[5].Communication.MAC             EVENT:RCV | Type:RTB | From:2 | To:5
+4.388178286516    SN.node[5].Communication.MAC             EVENT:DEBUG_FILTER | Node:5 | dx:0.032868 | dy:29.6046 | Dir:1
+4.388178286516    SN.node[5].Communication.MAC             EVENT:FILTER | Node:5 | Status:WRONG_DIRECTION
+4.388178286516    SN.node[6].Communication.MAC             EVENT:RCV | Type:RTB | From:2 | To:6
+4.388178286516    SN.node[6].Communication.MAC             EVENT:DEBUG_FILTER | Node:6 | dx:0.0522039 | dy:39.4757 | Dir:1
+4.388178286516    SN.node[6].Communication.MAC             EVENT:FILTER | Node:6 | Status:WRONG_DIRECTION
+5.179810887821    SN.node[3].Communication.MAC             EVENT:RETRY | Node:3 | Count:3
+5.179810887821    SN.node[3].Communication.MAC             EVENT:SEND | Type:RTB | From:3 | To:BROADCAST
+5.179810887821    SN.node[3].Communication.MAC             EVENT:STATE | Node:3 | State:WAIT_CTB
+5.179910887221    SN.node[3].Communication.MAC             EVENT:RADIO_STATE | Node:3 | Mode:RX | Goal:LISTEN_CTB
+5.18034288782     SN.node[0].Communication.MAC             EVENT:RCV | Type:RTB | From:3 | To:0
+5.18034288782     SN.node[0].Communication.MAC             EVENT:DEBUG_FILTER | Node:0 | dx:-200.011 | dy:-19.6674 | Dir:1
+5.18034288782     SN.node[0].Communication.MAC             EVENT:FILTER | Node:0 | Status:WRONG_DIRECTION
+5.18034288782     SN.node[1].Communication.MAC             EVENT:RCV | Type:RTB | From:3 | To:1
+5.18034288782     SN.node[1].Communication.MAC             EVENT:DEBUG_FILTER | Node:1 | dx:-0.0110742 | dy:-19.6674 | Dir:1
+5.18034288782     SN.node[1].Communication.MAC             EVENT:FILTER | Node:1 | Status:WRONG_DIRECTION
+5.18034288782     SN.node[2].Communication.MAC             EVENT:RCV | Type:RTB | From:3 | To:2
+5.18034288782     SN.node[2].Communication.MAC             EVENT:DEBUG_FILTER | Node:2 | dx:-0.00829875 | dy:-9.83398 | Dir:1
+5.18034288782     SN.node[2].Communication.MAC             EVENT:FILTER | Node:2 | Status:WRONG_DIRECTION
+5.18034288782     SN.node[4].Communication.MAC             EVENT:RCV | Type:RTB | From:3 | To:4
+5.18034288782     SN.node[4].Communication.MAC             EVENT:DEBUG_FILTER | Node:4 | dx:0.0137398 | dy:9.83508 | Dir:1
+5.18034288782     SN.node[4].Communication.MAC             EVENT:FILTER | Node:4 | Status:WRONG_DIRECTION
+5.18034288782     SN.node[5].Communication.MAC             EVENT:RCV | Type:RTB | From:3 | To:5
+5.18034288782     SN.node[5].Communication.MAC             EVENT:DEBUG_FILTER | Node:5 | dx:0.0327863 | dy:19.6718 | Dir:1
+5.18034288782     SN.node[5].Communication.MAC             EVENT:FILTER | Node:5 | Status:WRONG_DIRECTION
+5.18034288782     SN.node[6].Communication.MAC             EVENT:RCV | Type:RTB | From:3 | To:6
+5.18034288782     SN.node[6].Communication.MAC             EVENT:DEBUG_FILTER | Node:6 | dx:0.0569562 | dy:29.5106 | Dir:1
+5.18034288782     SN.node[6].Communication.MAC             EVENT:FILTER | Node:6 | Status:WRONG_DIRECTION
+5.287692360139    SN.node[2].Communication.MAC             EVENT:DROP_PKT | Node:2 | Reason:MAX_RETRY_REACHED
+5.287692360139    SN.node[2].Communication.MAC             EVENT:STATE | Node:2 | State:IDLE | Reason:DROP_PKT
+6.079805489507    SN.node[3].Communication.MAC             EVENT:DROP_PKT | Node:3 | Reason:MAX_RETRY_REACHED
+6.079805489507    SN.node[3].Communication.MAC             EVENT:STATE | Node:3 | State:IDLE | Reason:DROP_PKT
+7.570912094715    SN.node[2].Application                   Sensed = 0.396
+7.570912094715    SN.node[2].Application                   Sending [Value reporting pck] of size 20 bytes to communication layer
+7.570912094715    SN.node[2].Communication.MAC             EVENT:SEND | Type:RTB | From:2 | To:BROADCAST
+7.570912094715    SN.node[2].Communication.MAC             EVENT:STATE | Node:2 | State:WAIT_CTB
+7.571012099834    SN.node[2].Communication.MAC             EVENT:RADIO_STATE | Node:2 | Mode:RX | Goal:LISTEN_CTB
+7.571444094714    SN.node[0].Communication.MAC             EVENT:RCV | Type:RTB | From:2 | To:0
+7.571444094714    SN.node[0].Communication.MAC             EVENT:DEBUG_FILTER | Node:0 | dx:-200.004 | dy:-9.7668 | Dir:1
+7.571444094714    SN.node[0].Communication.MAC             EVENT:FILTER | Node:0 | Status:WRONG_DIRECTION
+7.571444094714    SN.node[1].Communication.MAC             EVENT:RCV | Type:RTB | From:2 | To:1
+7.571444094714    SN.node[1].Communication.MAC             EVENT:DEBUG_FILTER | Node:1 | dx:-0.00388565 | dy:-9.7668 | Dir:1
+7.571444094714    SN.node[1].Communication.MAC             EVENT:FILTER | Node:1 | Status:WRONG_DIRECTION
+7.571444094714    SN.node[3].Communication.MAC             EVENT:RCV | Type:RTB | From:2 | To:3
+7.571444094714    SN.node[3].Communication.MAC             EVENT:DEBUG_FILTER | Node:3 | dx:0.0116182 | dy:9.76757 | Dir:1
+7.571444094714    SN.node[3].Communication.MAC             EVENT:FILTER | Node:3 | Status:WRONG_DIRECTION
+7.571444094714    SN.node[4].Communication.MAC             EVENT:RCV | Type:RTB | From:2 | To:4
+7.571444094714    SN.node[4].Communication.MAC             EVENT:DEBUG_FILTER | Node:4 | dx:0.030854 | dy:19.5367 | Dir:1
+7.571444094714    SN.node[4].Communication.MAC             EVENT:FILTER | Node:4 | Status:WRONG_DIRECTION
+7.571444094714    SN.node[5].Communication.MAC             EVENT:RCV | Type:RTB | From:2 | To:5
+7.571444094714    SN.node[5].Communication.MAC             EVENT:DEBUG_FILTER | Node:5 | dx:0.057519 | dy:29.3081 | Dir:1
+7.571444094714    SN.node[5].Communication.MAC             EVENT:FILTER | Node:5 | Status:WRONG_DIRECTION
+7.571444094714    SN.node[6].Communication.MAC             EVENT:RCV | Type:RTB | From:2 | To:6
+7.571444094714    SN.node[6].Communication.MAC             EVENT:DEBUG_FILTER | Node:6 | dx:0.0913569 | dy:39.0824 | Dir:1
+7.571444094714    SN.node[6].Communication.MAC             EVENT:FILTER | Node:6 | Status:WRONG_DIRECTION
+8.470958168337    SN.node[2].Communication.MAC             EVENT:RETRY | Node:2 | Count:1
+8.470958168337    SN.node[2].Communication.MAC             EVENT:SEND | Type:RTB | From:2 | To:BROADCAST
+8.470958168337    SN.node[2].Communication.MAC             EVENT:STATE | Node:2 | State:WAIT_CTB
+8.471058173456    SN.node[2].Communication.MAC             EVENT:RADIO_STATE | Node:2 | Mode:RX | Goal:LISTEN_CTB
+8.471490168336    SN.node[0].Communication.MAC             EVENT:RCV | Type:RTB | From:2 | To:0
+8.471490168336    SN.node[0].Communication.MAC             EVENT:DEBUG_FILTER | Node:0 | dx:-200.004 | dy:-9.73348 | Dir:1
+8.471490168336    SN.node[0].Communication.MAC             EVENT:FILTER | Node:0 | Status:WRONG_DIRECTION
+8.471490168336    SN.node[1].Communication.MAC             EVENT:RCV | Type:RTB | From:2 | To:1
+8.471490168336    SN.node[1].Communication.MAC             EVENT:DEBUG_FILTER | Node:1 | dx:-0.00444074 | dy:-9.73348 | Dir:1
+8.471490168336    SN.node[1].Communication.MAC             EVENT:FILTER | Node:1 | Status:WRONG_DIRECTION
+8.471490168336    SN.node[3].Communication.MAC             EVENT:RCV | Type:RTB | From:2 | To:3
+8.471490168336    SN.node[3].Communication.MAC             EVENT:DEBUG_FILTER | Node:3 | dx:0.013278 | dy:9.73437 | Dir:1
+8.471490168336    SN.node[3].Communication.MAC             EVENT:FILTER | Node:3 | Status:WRONG_DIRECTION
+8.471490168336    SN.node[4].Communication.MAC             EVENT:RCV | Type:RTB | From:2 | To:4
+8.471490168336    SN.node[4].Communication.MAC             EVENT:DEBUG_FILTER | Node:4 | dx:0.0352617 | dy:19.4705 | Dir:1
+8.471490168336    SN.node[4].Communication.MAC             EVENT:FILTER | Node:4 | Status:WRONG_DIRECTION
+8.471490168336    SN.node[5].Communication.MAC             EVENT:RCV | Type:RTB | From:2 | To:5
+8.471490168336    SN.node[5].Communication.MAC             EVENT:DEBUG_FILTER | Node:5 | dx:0.0657361 | dy:29.2092 | Dir:1
+8.471490168336    SN.node[5].Communication.MAC             EVENT:FILTER | Node:5 | Status:WRONG_DIRECTION
+8.471490168336    SN.node[6].Communication.MAC             EVENT:RCV | Type:RTB | From:2 | To:6
+8.471490168336    SN.node[6].Communication.MAC             EVENT:DEBUG_FILTER | Node:6 | dx:0.104408 | dy:38.9513 | Dir:1
+8.471490168336    SN.node[6].Communication.MAC             EVENT:FILTER | Node:6 | Status:WRONG_DIRECTION
+9.371004241959    SN.node[2].Communication.MAC             EVENT:RETRY | Node:2 | Count:2
+9.371004241959    SN.node[2].Communication.MAC             EVENT:SEND | Type:RTB | From:2 | To:BROADCAST
+9.371004241959    SN.node[2].Communication.MAC             EVENT:STATE | Node:2 | State:WAIT_CTB
+9.371104247078    SN.node[2].Communication.MAC             EVENT:RADIO_STATE | Node:2 | Mode:RX | Goal:LISTEN_CTB
+9.371536241958    SN.node[0].Communication.MAC             EVENT:RCV | Type:RTB | From:2 | To:0
+9.371536241958    SN.node[0].Communication.MAC             EVENT:DEBUG_FILTER | Node:0 | dx:-200.005 | dy:-9.70017 | Dir:1
+9.371536241958    SN.node[0].Communication.MAC             EVENT:FILTER | Node:0 | Status:WRONG_DIRECTION
+9.371536241958    SN.node[1].Communication.MAC             EVENT:RCV | Type:RTB | From:2 | To:1
+9.371536241958    SN.node[1].Communication.MAC             EVENT:DEBUG_FILTER | Node:1 | dx:-0.00499584 | dy:-9.70017 | Dir:1
+9.371536241958    SN.node[1].Communication.MAC             EVENT:FILTER | Node:1 | Status:WRONG_DIRECTION
+9.371536241958    SN.node[3].Communication.MAC             EVENT:RCV | Type:RTB | From:2 | To:3
+9.371536241958    SN.node[3].Communication.MAC             EVENT:DEBUG_FILTER | Node:3 | dx:0.0149377 | dy:9.70116 | Dir:1
+9.371536241958    SN.node[3].Communication.MAC             EVENT:FILTER | Node:3 | Status:WRONG_DIRECTION
+9.371536241958    SN.node[4].Communication.MAC             EVENT:RCV | Type:RTB | From:2 | To:4
+9.371536241958    SN.node[4].Communication.MAC             EVENT:DEBUG_FILTER | Node:4 | dx:0.0396695 | dy:19.4043 | Dir:1
+9.371536241958    SN.node[4].Communication.MAC             EVENT:FILTER | Node:4 | Status:WRONG_DIRECTION
+9.371536241958    SN.node[5].Communication.MAC             EVENT:RCV | Type:RTB | From:2 | To:5
+9.371536241958    SN.node[5].Communication.MAC             EVENT:DEBUG_FILTER | Node:5 | dx:0.0739531 | dy:29.1104 | Dir:1
+9.371536241958    SN.node[5].Communication.MAC             EVENT:FILTER | Node:5 | Status:WRONG_DIRECTION
+9.371536241958    SN.node[6].Communication.MAC             EVENT:RCV | Type:RTB | From:2 | To:6
+9.371536241958    SN.node[6].Communication.MAC             EVENT:DEBUG_FILTER | Node:6 | dx:0.117459 | dy:38.8202 | Dir:1
+9.371536241958    SN.node[6].Communication.MAC             EVENT:FILTER | Node:6 | Status:WRONG_DIRECTION
+10.271050315581   SN.node[2].Communication.MAC             EVENT:RETRY | Node:2 | Count:3
+10.271050315581   SN.node[2].Communication.MAC             EVENT:SEND | Type:RTB | From:2 | To:BROADCAST
+10.271050315581   SN.node[2].Communication.MAC             EVENT:STATE | Node:2 | State:WAIT_CTB
+10.2711503207     SN.node[2].Communication.MAC             EVENT:RADIO_STATE | Node:2 | Mode:RX | Goal:LISTEN_CTB
+10.27158231558    SN.node[0].Communication.MAC             EVENT:RCV | Type:RTB | From:2 | To:0
+10.27158231558    SN.node[0].Communication.MAC             EVENT:DEBUG_FILTER | Node:0 | dx:-200.006 | dy:-9.66685 | Dir:1
+10.27158231558    SN.node[0].Communication.MAC             EVENT:FILTER | Node:0 | Status:WRONG_DIRECTION
+10.27158231558    SN.node[1].Communication.MAC             EVENT:RCV | Type:RTB | From:2 | To:1
+10.27158231558    SN.node[1].Communication.MAC             EVENT:DEBUG_FILTER | Node:1 | dx:-0.00555093 | dy:-9.66685 | Dir:1
+10.27158231558    SN.node[1].Communication.MAC             EVENT:FILTER | Node:1 | Status:WRONG_DIRECTION
+10.27158231558    SN.node[3].Communication.MAC             EVENT:RCV | Type:RTB | From:2 | To:3
+10.27158231558    SN.node[3].Communication.MAC             EVENT:DEBUG_FILTER | Node:3 | dx:0.0165975 | dy:9.66796 | Dir:1
+10.27158231558    SN.node[3].Communication.MAC             EVENT:FILTER | Node:3 | Status:WRONG_DIRECTION
+10.27158231558    SN.node[4].Communication.MAC             EVENT:RCV | Type:RTB | From:2 | To:4
+10.27158231558    SN.node[4].Communication.MAC             EVENT:DEBUG_FILTER | Node:4 | dx:0.0440772 | dy:19.3381 | Dir:1
+10.27158231558    SN.node[4].Communication.MAC             EVENT:FILTER | Node:4 | Status:WRONG_DIRECTION
+10.27158231558    SN.node[5].Communication.MAC             EVENT:RCV | Type:RTB | From:2 | To:5
+10.27158231558    SN.node[5].Communication.MAC             EVENT:DEBUG_FILTER | Node:5 | dx:0.0821701 | dy:29.0115 | Dir:1
+10.27158231558    SN.node[5].Communication.MAC             EVENT:FILTER | Node:5 | Status:WRONG_DIRECTION
+10.27158231558    SN.node[6].Communication.MAC             EVENT:RCV | Type:RTB | From:2 | To:6
+10.27158231558    SN.node[6].Communication.MAC             EVENT:DEBUG_FILTER | Node:6 | dx:0.13051 | dy:38.6892 | Dir:1
+10.27158231558    SN.node[6].Communication.MAC             EVENT:FILTER | Node:6 | Status:WRONG_DIRECTION
+11.171096389203   SN.node[2].Communication.MAC             EVENT:DROP_PKT | Node:2 | Reason:MAX_RETRY_REACHED
+11.171096389203   SN.node[2].Communication.MAC             EVENT:STATE | Node:2 | State:IDLE | Reason:DROP_PKT
+26.238635474273   SN.node[4].Application                   Sensed = 0
+26.238635474273   SN.node[4].Application                   Sending [Value reporting pck] of size 20 bytes to communication layer
+26.238635474273   SN.node[4].Communication.MAC             EVENT:SEND | Type:RTB | From:4 | To:BROADCAST
+26.238635474273   SN.node[4].Communication.MAC             EVENT:STATE | Node:4 | State:WAIT_CTB
+26.238735475698   SN.node[4].Communication.MAC             EVENT:RADIO_STATE | Node:4 | Mode:RX | Goal:LISTEN_CTB
+26.239167474272   SN.node[0].Communication.MAC             EVENT:RCV | Type:RTB | From:4 | To:0
+26.239167474272   SN.node[0].Communication.MAC             EVENT:DEBUG_FILTER | Node:0 | dx:-200.129 | dy:-27.4129 | Dir:1
+26.239167474272   SN.node[0].Communication.MAC             EVENT:FILTER | Node:0 | Status:WRONG_DIRECTION
+26.239167474272   SN.node[1].Communication.MAC             EVENT:RCV | Type:RTB | From:4 | To:1
+26.239167474272   SN.node[1].Communication.MAC             EVENT:DEBUG_FILTER | Node:1 | dx:-0.129033 | dy:-27.4129 | Dir:1
+26.239167474272   SN.node[1].Communication.MAC             EVENT:FILTER | Node:1 | Status:WRONG_DIRECTION
+26.239167474272   SN.node[2].Communication.MAC             EVENT:RCV | Type:RTB | From:4 | To:2
+26.239167474272   SN.node[2].Communication.MAC             EVENT:DEBUG_FILTER | Node:2 | dx:-0.114601 | dy:-18.2791 | Dir:1
+26.239167474272   SN.node[2].Communication.MAC             EVENT:FILTER | Node:2 | Status:WRONG_DIRECTION
+26.239167474272   SN.node[3].Communication.MAC             EVENT:RCV | Type:RTB | From:4 | To:3
+26.239167474272   SN.node[3].Communication.MAC             EVENT:DEBUG_FILTER | Node:3 | dx:-0.0714472 | dy:-9.1424 | Dir:1
+26.239167474272   SN.node[3].Communication.MAC             EVENT:FILTER | Node:3 | Status:WRONG_DIRECTION
+26.239167474272   SN.node[5].Communication.MAC             EVENT:RCV | Type:RTB | From:4 | To:5
+26.239167474272   SN.node[5].Communication.MAC             EVENT:DEBUG_FILTER | Node:5 | dx:0.0990415 | dy:9.15084 | Dir:1
+26.239167474272   SN.node[5].Communication.MAC             EVENT:FILTER | Node:5 | Status:WRONG_DIRECTION
+26.239167474272   SN.node[6].Communication.MAC             EVENT:RCV | Type:RTB | From:4 | To:6
+26.239167474272   SN.node[6].Communication.MAC             EVENT:DEBUG_FILTER | Node:6 | dx:0.224725 | dy:18.3127 | Dir:1
+26.239167474272   SN.node[6].Communication.MAC             EVENT:FILTER | Node:6 | Status:WRONG_DIRECTION
+27.138648304212   SN.node[4].Communication.MAC             EVENT:RETRY | Node:4 | Count:1
+27.138648304212   SN.node[4].Communication.MAC             EVENT:SEND | Type:RTB | From:4 | To:BROADCAST
+27.138648304212   SN.node[4].Communication.MAC             EVENT:STATE | Node:4 | State:WAIT_CTB
+27.138748305637   SN.node[4].Communication.MAC             EVENT:RADIO_STATE | Node:4 | Mode:RX | Goal:LISTEN_CTB
+27.139180304211   SN.node[0].Communication.MAC             EVENT:RCV | Type:RTB | From:4 | To:0
+27.139180304211   SN.node[0].Communication.MAC             EVENT:DEBUG_FILTER | Node:0 | dx:-200.134 | dy:-27.3134 | Dir:1
+27.139180304211   SN.node[0].Communication.MAC             EVENT:FILTER | Node:0 | Status:WRONG_DIRECTION
+27.139180304211   SN.node[1].Communication.MAC             EVENT:RCV | Type:RTB | From:4 | To:1
+27.139180304211   SN.node[1].Communication.MAC             EVENT:DEBUG_FILTER | Node:1 | dx:-0.133996 | dy:-27.3134 | Dir:1
+27.139180304211   SN.node[1].Communication.MAC             EVENT:FILTER | Node:1 | Status:WRONG_DIRECTION
+27.139180304211   SN.node[2].Communication.MAC             EVENT:RCV | Type:RTB | From:4 | To:2
+27.139180304211   SN.node[2].Communication.MAC             EVENT:DEBUG_FILTER | Node:2 | dx:-0.119008 | dy:-18.2129 | Dir:1
+27.139180304211   SN.node[2].Communication.MAC             EVENT:FILTER | Node:2 | Status:WRONG_DIRECTION
+27.139180304211   SN.node[3].Communication.MAC             EVENT:RCV | Type:RTB | From:4 | To:3
+27.139180304211   SN.node[3].Communication.MAC             EVENT:DEBUG_FILTER | Node:3 | dx:-0.0741951 | dy:-9.10941 | Dir:1
+27.139180304211   SN.node[3].Communication.MAC             EVENT:FILTER | Node:3 | Status:WRONG_DIRECTION
+27.139180304211   SN.node[5].Communication.MAC             EVENT:RCV | Type:RTB | From:4 | To:5
+27.139180304211   SN.node[5].Communication.MAC             EVENT:DEBUG_FILTER | Node:5 | dx:0.102851 | dy:9.11818 | Dir:1
+27.139180304211   SN.node[5].Communication.MAC             EVENT:FILTER | Node:5 | Status:WRONG_DIRECTION
+27.139180304211   SN.node[6].Communication.MAC             EVENT:RCV | Type:RTB | From:4 | To:6
+27.139180304211   SN.node[6].Communication.MAC             EVENT:DEBUG_FILTER | Node:6 | dx:0.233368 | dy:18.2478 | Dir:1
+27.139180304211   SN.node[6].Communication.MAC             EVENT:FILTER | Node:6 | Status:WRONG_DIRECTION
+28.038661134151   SN.node[4].Communication.MAC             EVENT:RETRY | Node:4 | Count:2
+28.038661134151   SN.node[4].Communication.MAC             EVENT:SEND | Type:RTB | From:4 | To:BROADCAST
+28.038661134151   SN.node[4].Communication.MAC             EVENT:STATE | Node:4 | State:WAIT_CTB
+28.038761135576   SN.node[4].Communication.MAC             EVENT:RADIO_STATE | Node:4 | Mode:RX | Goal:LISTEN_CTB
+28.03919313415    SN.node[0].Communication.MAC             EVENT:RCV | Type:RTB | From:4 | To:0
+28.03919313415    SN.node[0].Communication.MAC             EVENT:DEBUG_FILTER | Node:0 | dx:-200.139 | dy:-27.2139 | Dir:1
+28.03919313415    SN.node[0].Communication.MAC             EVENT:FILTER | Node:0 | Status:WRONG_DIRECTION
+28.03919313415    SN.node[1].Communication.MAC             EVENT:RCV | Type:RTB | From:4 | To:1
+28.03919313415    SN.node[1].Communication.MAC             EVENT:DEBUG_FILTER | Node:1 | dx:-0.138959 | dy:-27.2139 | Dir:1
+28.03919313415    SN.node[1].Communication.MAC             EVENT:FILTER | Node:1 | Status:WRONG_DIRECTION
+28.03919313415    SN.node[2].Communication.MAC             EVENT:RCV | Type:RTB | From:4 | To:2
+28.03919313415    SN.node[2].Communication.MAC             EVENT:DEBUG_FILTER | Node:2 | dx:-0.123416 | dy:-18.1467 | Dir:1
+28.03919313415    SN.node[2].Communication.MAC             EVENT:FILTER | Node:2 | Status:WRONG_DIRECTION
+28.03919313415    SN.node[3].Communication.MAC             EVENT:RCV | Type:RTB | From:4 | To:3
+28.03919313415    SN.node[3].Communication.MAC             EVENT:DEBUG_FILTER | Node:3 | dx:-0.0769431 | dy:-9.07643 | Dir:1
+28.03919313415    SN.node[3].Communication.MAC             EVENT:FILTER | Node:3 | Status:WRONG_DIRECTION
+28.03919313415    SN.node[5].Communication.MAC             EVENT:RCV | Type:RTB | From:4 | To:5
+28.03919313415    SN.node[5].Communication.MAC             EVENT:DEBUG_FILTER | Node:5 | dx:0.10666 | dy:9.08552 | Dir:1
+28.03919313415    SN.node[5].Communication.MAC             EVENT:FILTER | Node:5 | Status:WRONG_DIRECTION
+28.03919313415    SN.node[6].Communication.MAC             EVENT:RCV | Type:RTB | From:4 | To:6
+28.03919313415    SN.node[6].Communication.MAC             EVENT:DEBUG_FILTER | Node:6 | dx:0.242011 | dy:18.1829 | Dir:1
+28.03919313415    SN.node[6].Communication.MAC             EVENT:FILTER | Node:6 | Status:WRONG_DIRECTION
+28.93867396409    SN.node[4].Communication.MAC             EVENT:RETRY | Node:4 | Count:3
+28.93867396409    SN.node[4].Communication.MAC             EVENT:SEND | Type:RTB | From:4 | To:BROADCAST
+28.93867396409    SN.node[4].Communication.MAC             EVENT:STATE | Node:4 | State:WAIT_CTB
+28.938773965515   SN.node[4].Communication.MAC             EVENT:RADIO_STATE | Node:4 | Mode:RX | Goal:LISTEN_CTB
+28.939205964089   SN.node[0].Communication.MAC             EVENT:RCV | Type:RTB | From:4 | To:0
+28.939205964089   SN.node[0].Communication.MAC             EVENT:DEBUG_FILTER | Node:0 | dx:-200.139 | dy:-27.2139 | Dir:1
+28.939205964089   SN.node[0].Communication.MAC             EVENT:FILTER | Node:0 | Status:WRONG_DIRECTION
+28.939205964089   SN.node[1].Communication.MAC             EVENT:RCV | Type:RTB | From:4 | To:1
+28.939205964089   SN.node[1].Communication.MAC             EVENT:DEBUG_FILTER | Node:1 | dx:-0.138959 | dy:-27.2139 | Dir:1
+28.939205964089   SN.node[1].Communication.MAC             EVENT:FILTER | Node:1 | Status:WRONG_DIRECTION
+28.939205964089   SN.node[2].Communication.MAC             EVENT:RCV | Type:RTB | From:4 | To:2
+28.939205964089   SN.node[2].Communication.MAC             EVENT:DEBUG_FILTER | Node:2 | dx:-0.123416 | dy:-18.1467 | Dir:1
+28.939205964089   SN.node[2].Communication.MAC             EVENT:FILTER | Node:2 | Status:WRONG_DIRECTION
+28.939205964089   SN.node[3].Communication.MAC             EVENT:RCV | Type:RTB | From:4 | To:3
+28.939205964089   SN.node[3].Communication.MAC             EVENT:DEBUG_FILTER | Node:3 | dx:-0.0769431 | dy:-9.07643 | Dir:1
+28.939205964089   SN.node[3].Communication.MAC             EVENT:FILTER | Node:3 | Status:WRONG_DIRECTION
+28.939205964089   SN.node[5].Communication.MAC             EVENT:RCV | Type:RTB | From:4 | To:5
+28.939205964089   SN.node[5].Communication.MAC             EVENT:DEBUG_FILTER | Node:5 | dx:0.10666 | dy:9.08552 | Dir:1
+28.939205964089   SN.node[5].Communication.MAC             EVENT:FILTER | Node:5 | Status:WRONG_DIRECTION
+28.939205964089   SN.node[6].Communication.MAC             EVENT:RCV | Type:RTB | From:4 | To:6
+28.939205964089   SN.node[6].Communication.MAC             EVENT:DEBUG_FILTER | Node:6 | dx:0.242011 | dy:18.1829 | Dir:1
+28.939205964089   SN.node[6].Communication.MAC             EVENT:FILTER | Node:6 | Status:WRONG_DIRECTION
+29.838686794029   SN.node[4].Communication.MAC             EVENT:DROP_PKT | Node:4 | Reason:MAX_RETRY_REACHED
+29.838686794029   SN.node[4].Communication.MAC             EVENT:STATE | Node:4 | State:IDLE | Reason:DROP_PKT
