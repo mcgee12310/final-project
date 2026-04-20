@@ -333,6 +333,8 @@
     }
 
     function ingestEvent(ev) {
+      // ĐÓNG DẤU THỜI GIAN THỰC CỦA TRÌNH DUYỆT (Máy tính của bạn)
+      ev.wallTime = Date.now();
       events.push(ev);
 
       if (ev.event === "POS" && ev.node != null && !nodes[ev.node]) {
@@ -354,7 +356,8 @@
           direction: ev.dir || ev.Dir || "EAST",
           maxR: parseFloat(ev.maxr || ev.MaxR || 300),
           widthW: parseFloat(ev.width || ev.Width || 50),
-          l: 0, u: parseFloat(ev.maxr || ev.MaxR || 300)
+          l: 0, u: parseFloat(ev.maxr || ev.MaxR || 300),
+          wallTime: Date.now() // Đóng dấu cho vùng BPAB
         };
       }
       if (ev.event === "CONTENSION_ROUND" && ev.node !== undefined && ev.range !== undefined) {
@@ -364,8 +367,8 @@
           if (m) {
             activeContentions[src].l = parseFloat(m[1]);
             activeContentions[src].u = parseFloat(m[2]);
-            activeContentions[src].time = ev.time;
             activeContentions[src].round = parseInt(ev.round || 0);
+            activeContentions[src].wallTime = Date.now(); // Cập nhật dấu thời gian khi vòng đổi
           }
         }
       }
@@ -407,13 +410,10 @@
     function renderEngine() {
       if (!rtLoopActive) return;
 
-      const now = Date.now();
-      const dt = (now - lastWallTime) / 1000;
-      lastWallTime = now;
+      const now = Date.now(); // Lấy đồng hồ đời thực liên tục
 
-      if (currentTime < latestSimTime) currentTime = latestSimTime;
-      else currentTime += dt;
-
+      // 1. Đồng bộ đồng hồ số liệu cứng theo Castalia
+      currentTime = latestSimTime;
       document.getElementById("timeLabel").innerText = currentTime.toFixed(3) + " s";
 
       nodeLayer.selectAll("g").each(function (d) {
@@ -421,19 +421,20 @@
         d3.select(this).select("circle").attr("fill", getStateColor(latestStates[nid], latestWinners[nid]));
       });
 
-      const activeEvents = events.filter(e => e.time <= currentTime && e.time > currentTime - FADE_WINDOW);
-
       effectLayer.selectAll("*").remove();
       edgeLayer.selectAll("*").remove();
 
+      // 2. Vẽ Vùng Phân Chia BPAB (Mờ đi sau 0.8s đời thực)
       Object.keys(activeContentions).forEach(srcId => {
         const cont = activeContentions[srcId];
-        if (!cont.time) return;
-        const age = currentTime - cont.time;
-        if (age < 0 || age >= 0.8) return;
+        if (!cont.wallTime) return;
+
+        // Tính tuổi bằng Giây (đời thực)
+        const realAge = (now - cont.wallTime) / 1000;
+        if (realAge < 0 || realAge >= 0.8) return;
 
         const srcNode = nodes[srcId]; if (!srcNode) return;
-        const alpha = Math.max(0, 1 - age / 0.8);
+        const alpha = Math.max(0, 1 - realAge / 0.8);
         const L = cont.l, U = cont.u, Mid = (L + U) / 2;
         const direction = (cont.direction || "EAST").toUpperCase();
         const MaxR = cont.maxR || 300, W = cont.widthW || 50;
@@ -496,14 +497,18 @@
         }
       });
 
+      // 3. Vẽ Sóng Radar và Gói tin (Mờ đi sau 0.5s đời thực)
+      // CHỈ lấy các event xảy ra trong vòng 0.5s vừa qua (Đời thực)
+      const activeEvents = events.filter(e => e.wallTime && (now - e.wallTime) / 1000 < FADE_WINDOW);
+
       activeEvents.forEach(e => {
-        const age = currentTime - e.time;
-        const alpha = 1 - age / FADE_WINDOW;
+        const realAge = (now - e.wallTime) / 1000;
+        const alpha = 1 - realAge / FADE_WINDOW;
 
         if (e.event.includes("SEND_BB")) {
           const src = nodes[e.node]; if (!src) return;
           [1, 2, 3].forEach(i => {
-            effectLayer.append("circle").attr("cx", src.x).attr("cy", src.y).attr("r", 20 * i + age * 200)
+            effectLayer.append("circle").attr("cx", src.x).attr("cy", src.y).attr("r", 20 * i + realAge * 200)
               .attr("fill", "none").attr("stroke", "black").attr("stroke-width", 2).attr("opacity", alpha * (0.6 - i * 0.1));
           });
         }
@@ -519,7 +524,7 @@
 
           if (destStr === "BROADCAST") {
             [1, 2].forEach(i => {
-              effectLayer.append("circle").attr("cx", src.x).attr("cy", src.y).attr("r", 40 * i + age * 300)
+              effectLayer.append("circle").attr("cx", src.x).attr("cy", src.y).attr("r", 40 * i + realAge * 300)
                 .attr("fill", "none").attr("stroke", color).attr("stroke-width", pType.includes("CTB") ? 3 : 1.5)
                 .attr("stroke-dasharray", pType.includes("CTB") ? "10,5" : "5,5").attr("opacity", alpha * (1 - i * 0.2));
             });
