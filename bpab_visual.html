@@ -1,0 +1,848 @@
+<!doctype html>
+<html lang="vi">
+
+<head>
+  <meta charset="utf-8" />
+  <title>BPAB Protocol Visualizer</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <style>
+    /* 1. Thả tự do body, cho phép cuộn trang (scroll) */
+    body {
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      margin: 0;
+      background: #f4f7f6;
+      color: #333;
+      overflow-y: auto;
+      /* Bật thanh cuộn dọc cho toàn trang */
+      padding-bottom: 80px;
+      /* Chừa khoảng trống dưới đáy để không bị Slider đè lên */
+      box-sizing: border-box;
+    }
+
+    h2 {
+      margin-top: 0;
+      color: #2c3e50;
+    }
+
+    #controlsBox {
+      background: #fff;
+      padding: 15px;
+      border-radius: 8px;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+      margin: 10px;
+    }
+
+    .btn {
+      padding: 8px 12px;
+      border-radius: 4px;
+      border: none;
+      background: #3498db;
+      color: white;
+      cursor: pointer;
+      font-weight: bold;
+      margin-right: 5px;
+    }
+
+    .btn:hover {
+      background: #2980b9;
+    }
+
+    .btn.play {
+      background: #2ecc71;
+    }
+
+    .btn.play:hover {
+      background: #27ae60;
+    }
+
+    .btn.pause {
+      background: #e74c3c;
+    }
+
+    .btn.pause:hover {
+      background: #c0392b;
+    }
+
+    textarea {
+      width: 100%;
+      height: 80px;
+      font-family: monospace;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      padding: 5px;
+      box-sizing: border-box;
+    }
+
+    .legend-item {
+      display: inline-flex;
+      align-items: center;
+      margin-right: 15px;
+      font-size: 12px;
+    }
+
+    .color-box {
+      width: 12px;
+      height: 12px;
+      display: inline-block;
+      margin-right: 5px;
+      border-radius: 3px;
+    }
+
+    /* 2. Thiết lập khu vực Chính siêu to */
+    #main {
+      display: flex;
+      gap: 15px;
+      margin: 0 10px 10px 10px;
+      height: 85vh;
+      /* Cao bằng 85% màn hình */
+      min-height: 700px;
+      /* Không bao giờ nhỏ hơn 700px */
+    }
+
+    /* Bản đồ (Chiếm phần lớn diện tích) */
+    #canvas-wrap {
+      flex: 4;
+      /* Tỷ lệ 4 phần cho Map, 1 phần cho Log (To hơn rất nhiều) */
+      background: #fff;
+      border-radius: 8px;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+      overflow: hidden;
+      /* Cắt phần bản đồ tràn viền, dùng kéo thả D3 thay cho scrollbar */
+      position: relative;
+    }
+
+    /* Bảng sự kiện (Event Log) */
+    #infoPanel {
+      flex: 1;
+      background: #fff;
+      padding: 15px;
+      border-radius: 8px;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+      overflow-y: auto;
+      /* Log có thanh cuộn riêng biệt */
+      font-size: 13px;
+      box-sizing: border-box;
+    }
+
+    .event-line {
+      padding: 4px 0;
+      border-bottom: 1px solid #eee;
+      font-family: monospace;
+    }
+
+    .event-line.highlight {
+      background: #fff3cd;
+      font-weight: bold;
+      color: #856404;
+    }
+
+    /* 3. Ghim thanh điều khiển xuống đáy màn hình */
+    #frameBar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: #fff;
+      padding: 10px 20px;
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      box-shadow: 0 -5px 15px rgba(0, 0, 0, 0.1);
+      /* Đổ bóng lên trên để phân cách */
+      z-index: 1000;
+      /* Đảm bảo luôn nổi trên cùng, không bị bản đồ đè */
+    }
+
+    #frameSlider {
+      flex: 1;
+      cursor: pointer;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div id="controlsBox">
+    <h2>⚙ BPAB Simulator Controls</h2>
+    <div style="display: flex; gap: 16px;">
+      <div style="flex: 2;">
+        <label><b>Paste Castalia Log Here:</b></label>
+        <textarea id="logArea" placeholder="Paste your Castalia-Trace.txt content here..."></textarea>
+        <div>
+          <button id="btnParse" class="btn">Load & Parse Log</button>
+        </div>
+      </div>
+      <div style="flex: 1; border-left: 2px solid #eee; padding-left: 20px;">
+        <label><b>Legend:</b></label><br>
+        <div class="legend-item"><span class="color-box" style="background:#bdc3c7;"></span> IDLE</div>
+        <div class="legend-item"><span class="color-box" style="background:#f1c40f;"></span> CONTENDING</div>
+        <div class="legend-item"><span class="color-box" style="background:#3498db;"></span> WAIT_CTB / WAIT_DATA</div>
+        <div class="legend-item"><span class="color-box" style="background:#e67e22;"></span> PRE_CTB</div>
+        <div class="legend-item"><span class="color-box" style="background:#ffd700; border-radius:50%"></span> WINNER
+        </div><br>
+        <div class="legend-item"><span style="color:#e74c3c; font-weight:bold;">O</span> Black-Burst (BB)</div>
+        <div class="legend-item"><span style="color:#e67e22; font-weight:bold;">→</span> RTB/CTB</div>
+        <div class="legend-item"><span style="color:#2ecc71; font-weight:bold;">→</span> DATA</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="main">
+    <div id="canvas-wrap">
+      <svg id="svg" width="100%" height="100%">
+        <defs>
+          <marker id="arrow-green" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L9,3 z" fill="#2ecc71" />
+          </marker>
+          <marker id="arrow-blue" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L9,3 z" fill="#3498db" />
+          </marker>
+          <marker id="arrow-yellow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L9,3 z" fill="#f1c40f" />
+          </marker>
+        </defs>
+        <g id="zoom-layer">
+          <g id="grid-layer"></g>
+          <g id="effect-layer"></g>
+          <g id="effect-layer"></g>
+          <g id="edge-layer"></g>
+          <g id="node-layer"></g>
+        </g>
+      </svg>
+    </div>
+    <div id="infoPanel">
+      <h3>Live Event Log</h3>
+      <div id="eventList"></div>
+    </div>
+  </div>
+
+  <div id="frameBar">
+    <button id="btnRealtime" class="btn">Start Real-time</button>
+    <button id="playPauseBtn" class="btn play">▶ Play</button>
+    <label>Speed:</label>
+    <input type="range" id="speedInput" min="1" max="20" value="3">
+    <span id="speedLabel">3x</span>
+
+    <input id="frameSlider" type="range" min="0" max="0" value="0" step="0.01">
+    <div id="timeLabel" style="min-width: 80px; font-weight: bold; color: #2980b9;">0.00 s</div>
+  </div>
+
+  <script>
+    // --- STATE ---
+    let events = [];
+    let nodes = {}; // id -> {x, y, state}
+    let tMin = 0, tMax = 0;
+    let currentTime = 0;
+    let playing = false;
+    let animationRef = null;
+
+    const FADE_WINDOW = 0.5; // Sự kiện (mũi tên/sóng) hiển thị trong 0.5 giây mô phỏng
+
+    // --- D3 ELEMENTS ---
+    const svg = d3.select("#svg");
+    const zoomLayer = d3.select("#zoom-layer");
+    const nodeLayer = d3.select("#node-layer");
+    const edgeLayer = d3.select("#edge-layer");
+    const effectLayer = d3.select("#effect-layer");
+    const eventListDiv = document.getElementById("eventList");
+
+    // Setup Zoom/Pan
+    const zoom = d3.zoom().scaleExtent([0.05, 20]).on("zoom", (e) => {
+      const k = e.transform.k;
+      const invK = 1 / k; // Hệ số nghịch đảo
+
+      zoomLayer.attr("transform", e.transform);
+      drawDynamicGrid(e.transform);
+
+      // GIỮ KÍCH THƯỚC NODE CỐ ĐỊNH:
+      // 1. Cập nhật bán kính node (giả sử gốc là 15px)
+      nodeLayer.selectAll(".node-bg")
+        .attr("r", 15 * invK)
+        .attr("stroke-width", 2 * invK);
+
+      // 2. Cập nhật font chữ ID node (giả sử gốc là 12px)
+      nodeLayer.selectAll("text")
+        .attr("font-size", 12 * invK)
+        .attr("y", 4 * invK); // Căn chỉnh lại vị trí chữ theo chiều dọc
+
+      // 3. Cập nhật các đường viền mũi tên/sóng radar nếu cần
+      edgeLayer.selectAll("line").attr("stroke-width", 2 * invK);
+      effectLayer.selectAll("circle").attr("stroke-width", 1.5 * invK);
+    });
+    svg.call(zoom);
+
+    // --- PARSER ---
+    document.getElementById("btnParse").addEventListener("click", () => {
+      const text = document.getElementById("logArea").value;
+      if (!text) { alert("Please paste log data!"); return; }
+
+      events = [];
+      nodes = {};
+      const lines = text.split('\n');
+
+      // Regex bắt định dạng: Timestamp ... EVENT:Name | Key:Val | Key:Val
+      const logRegex = /^([\d.]+)\s+.*?EVENT:([^|]+)\|(.*)$/;
+
+      lines.forEach(line => {
+        line = line.trim();
+        if (!line.includes("EVENT:")) return;
+        const match = line.match(logRegex);
+        if (match) {
+          const time = parseFloat(match[1]);
+          const eventName = match[2].trim();
+          const detailsRaw = match[3].trim();
+
+          let evObj = { time: time, event: eventName };
+
+          detailsRaw.split("|").forEach(item => {
+            if (item.includes(":")) {
+              let [k, v] = item.split(":");
+              k = k.trim().toLowerCase(); v = v.trim();
+              evObj[k] = isNaN(v) ? v : parseFloat(v);
+            }
+          });
+          events.push(evObj);
+
+          // Lưu vị trí Node
+          if (eventName === "POS") {
+            nodes[evObj.node] = { x: evObj.x, y: -evObj.y, state: "IDLE", winner: false };
+          }
+        }
+      });
+
+      if (events.length === 0) { alert("No valid events found!"); return; }
+
+      // Sắp xếp sự kiện theo thời gian
+      events.sort((a, b) => a.time - b.time);
+      tMin = events[0].time;
+      tMax = events[events.length - 1].time;
+      currentTime = tMin;
+
+      // Cấu hình Slider
+      const slider = document.getElementById("frameSlider");
+      slider.min = tMin; slider.max = tMax; slider.value = tMin;
+
+      initNodes();
+      updateFrame(currentTime);
+    });
+
+    function drawDynamicGrid(transform) {
+      const svgEl = document.getElementById("svg");
+      const width = svgEl.clientWidth || 1000;
+      const height = svgEl.clientHeight || 800;
+
+      // 1. Tính toán vùng không gian thực tế đang hiển thị trên màn hình
+      const xMin = (-transform.x) / transform.k;
+      const xMax = (width - transform.x) / transform.k;
+      const yMin = (-transform.y) / transform.k;
+      const yMax = (height - transform.y) / transform.k;
+
+      // 2. Tự động thay đổi bước nhảy (Step) dựa trên mức độ Zoom (k)
+      let step = 100;
+      if (transform.k <= 0.1) step = 1000;       // Zoom xa tít mù tắp
+      else if (transform.k <= 0.5) step = 200;   // Zoom vừa phải
+      else if (transform.k <= 2) step = 100;     // Mặc định
+      else if (transform.k <= 5) step = 20;      // Zoom gần
+      else step = 10;                            // Zoom cực cận
+
+      const gridLayer = d3.select("#grid-layer");
+      gridLayer.selectAll("*").remove();
+
+      // Mở rộng thêm 1 step để lưới trải dài hết mép màn hình
+      const startX = Math.floor(xMin / step) * step;
+      const endX = Math.ceil(xMax / step) * step;
+      const startY = Math.floor(yMin / step) * step;
+      const endY = Math.ceil(yMax / step) * step;
+
+      // 3. Vì Grid nằm trong layer bị Zoom, ta phải chia ngược cho (k) 
+      // để nét đứt và chữ số không bị phình to khi Zoom In.
+      const invK = 1 / transform.k;
+
+      // Vẽ các đường dọc (Trục Y)
+      for (let x = startX; x <= endX; x += step) {
+        gridLayer.append("line")
+          .attr("x1", x).attr("y1", startY)
+          .attr("x2", x).attr("y2", endY)
+          .attr("stroke", x === 0 ? "#95a5a6" : "#ecf0f1")
+          .attr("stroke-width", x === 0 ? 2 * invK : 1 * invK)
+          .attr("stroke-dasharray", x === 0 ? "" : `${5 * invK},${5 * invK}`);
+
+        // Chữ dính sát mép trên màn hình
+        gridLayer.append("text")
+          .attr("x", x).attr("y", yMin + 15 * invK)
+          .text(x)
+          .attr("fill", "#bdc3c7").attr("font-size", 12 * invK).attr("text-anchor", "middle");
+      }
+
+      // Vẽ các đường ngang (Trục X)
+      for (let y = startY; y <= endY; y += step) {
+        gridLayer.append("line")
+          .attr("x1", startX).attr("y1", y)
+          .attr("x2", endX).attr("y2", y)
+          .attr("stroke", y === 0 ? "#95a5a6" : "#ecf0f1")
+          .attr("stroke-width", y === 0 ? 2 * invK : 1 * invK)
+          .attr("stroke-dasharray", y === 0 ? "" : `${5 * invK},${5 * invK}`);
+
+        // Chữ dính sát mép trái màn hình
+        gridLayer.append("text")
+          .attr("x", xMin + 5 * invK).attr("y", y - 5 * invK)
+          .text(-y === 0 ? 0 : -y)
+          .attr("fill", "#bdc3c7").attr("font-size", 12 * invK).attr("text-anchor", "start");
+      }
+    }
+
+    // --- RENDERING ---
+    function initNodes() {
+      nodeLayer.selectAll("*").remove();
+
+      // Vẽ Nodes lên trên cùng
+      const nodeGroups = nodeLayer.selectAll("g")
+        .data(Object.entries(nodes))
+        .enter().append("g")
+        .attr("transform", d => `translate(${d[1].x}, ${d[1].y})`);
+
+      nodeGroups.append("circle")
+        .attr("class", "node-bg")
+        .attr("r", 15)
+        .attr("fill", "#bdc3c7")
+        .attr("stroke", "#7f8c8d")
+        .attr("stroke-width", 2);
+
+      nodeGroups.append("text")
+        .text(d => d[0])
+        .attr("y", 4)
+        .attr("text-anchor", "middle")
+        .attr("font-size", 12)
+        .attr("fill", "white")
+        .attr("font-weight", "bold");
+
+      // Auto-Zoom ban đầu sẽ kích hoạt sự kiện "zoom" và tự động vẽ lưới lần đầu tiên
+      svg.transition().duration(750).call(zoom.transform, d3.zoomIdentity.translate(200, 200).scale(1.2));
+    }
+
+    function getStateColor(state) {
+      if (state === "CONTENDING") return "#f1c40f"; // Vàng
+      if (state.includes("WAIT")) return "#3498db"; // Xanh dương
+      if (state === "PRE_CTB") return "#e67e22";    // Cam đậm
+      return "#bdc3c7"; // IDLE Xám
+    }
+
+    function updateFrame(t) {
+      document.getElementById("timeLabel").innerText = t.toFixed(4) + " s";
+      document.getElementById("frameSlider").value = t;
+
+      const currentTransform = d3.zoomTransform(svg.node());
+      const invK = 1 / currentTransform.k;
+
+      // 1. Cập nhật State cho các Node tính đến thời điểm t
+      let latestStates = {};
+      let latestWinners = {};
+
+      let nodeToSrc = {}; // Bản đồ lưu: Node đang tranh chấp -> Node Nguồn
+      let activeContentions = {}; // Lưu dải phân chia hiện tại của Node Nguồn
+
+      events.filter(e => e.time <= t).forEach(e => {
+        if (e.event === "STATE" && e.node !== undefined) {
+          latestStates[e.node] = e.state;
+
+          // SỬA: Tự động reset quyền Winner nếu Node về IDLE hoặc Bắt đầu phiên gửi mới (WAIT_CTB)
+          if (e.state === "IDLE" || e.state === "WAIT_CTB") {
+            latestWinners[e.node] = false;
+          }
+        }
+
+        if (e.event === "WINNER" && e.node !== undefined) {
+          latestWinners[e.node] = true;
+        }
+
+        // SỬA BỔ SUNG: Chắc chắn rằng nhận DATA thành công cũng mất vương miện Winner cũ
+        if (e.event === "RCV_DATA" && e.status === "SUCCESS" && e.node !== undefined) {
+          latestWinners[e.node] = false;
+        }
+
+        // --- LOGIC MỚI: THEO DÕI VÙNG PHÂN CHIA BPAB ---
+        // 1. Ánh xạ Node tranh chấp với Node Nguồn
+        if (e.event === "JOIN_BPAB" && e.node !== undefined && e.src !== undefined) {
+          nodeToSrc[e.node] = e.src;
+
+          if (!activeContentions[e.src]) activeContentions[e.src] = {};
+
+          // Lấy Dir, MaxR, Width từ log (lưu ý viết HOA chữ cái đầu cho khớp log C++)
+          activeContentions[e.src].direction = e.Dir;
+          activeContentions[e.src].maxR = parseFloat(e.MaxR);
+          activeContentions[e.src].widthW = parseFloat(e.Width);
+        }
+
+        // 2. Đọc khoảng cách LimitL và LimitU từ sự kiện CONTENSION_ROUND
+        if (e.event === "CONTENSION_ROUND" && e.node !== undefined && e.range !== undefined) {
+          const src = nodeToSrc[e.node];
+          if (src !== undefined) {
+            // Bóc tách "[0,300]" thành số
+            const match = String(e.range).match(/\[([\d.]+)\s*,\s*([\d.]+)\]/);
+            if (match) {
+              activeContentions[src] = {
+                l: parseFloat(match[1]),
+                u: parseFloat(match[2]),
+                time: e.time,
+                round: parseInt(e.round || 0)
+              };
+            }
+          }
+        }
+      });
+
+      nodeLayer.selectAll("g").each(function (d) {
+        const nid = parseInt(d[0]);
+        const node = nodes[nid];
+
+        const st = node?.state || "IDLE";
+
+        d3.select(this).select("circle")
+          .attr("fill", getStateColor(st))
+          .attr("stroke-width", 2 * invK);
+      });
+
+      // 2. Lấy các sự kiện trong "cửa sổ FADE" để vẽ đồ họa
+      const activeEvents = events.filter(e => e.time <= t && e.time > t - FADE_WINDOW);
+
+      // Cập nhật Log Panel
+      eventListDiv.innerHTML = activeEvents.slice(-20).map(e =>
+        `<div class="event-line highlight">[${e.time.toFixed(4)}] Node ${e.node || e.from || '-'}: ${e.event} ${e.type ? `(${e.type})` : ''} ${e.status ? e.status : ''}</div>`
+      ).reverse().join('');
+
+      // Xóa layer đồ họa cũ
+      effectLayer.selectAll("*").remove();
+      edgeLayer.selectAll("*").remove();
+
+      // --- VẼ VÙNG PHÂN CHIA BPAB (GIỮ KHUNG VÀ BÔI XÁM) ---
+      Object.keys(activeContentions).forEach(srcId => {
+        const cont = activeContentions[srcId];
+        const age = t - cont.time;
+
+        if (age >= 0 && age < 0.8) {
+          const srcNode = nodes[srcId];
+          if (!srcNode) return;
+
+          const alpha = Math.max(0, 1 - (age / 0.8));
+          const L = cont.l;
+          const U = cont.u;
+          const direction = cont.direction || "EAST";
+          const MaxR = cont.maxR || 300; // Lấy MaxR từ log
+          const W = cont.widthW || 50;   // Lấy Width từ log
+          const Mid = (L + U) / 2;
+
+          // Các biến lưu tọa độ cho 4 thành phần
+          let baseRect = {}, elimLower = {}, elimUpper = {}, activeRect = {};
+          let midLine = { x1: 0, y1: 0, x2: 0, y2: 0 };
+          let textPos = { x: srcNode.x, y: srcNode.y };
+
+          // Xác định tọa độ dựa trên Hướng
+          switch (direction.toUpperCase()) {
+            case 'EAST':
+              baseRect = { x: srcNode.x, y: srcNode.y - W / 2, w: MaxR, h: W };
+              elimLower = { x: srcNode.x, y: srcNode.y - W / 2, w: L, h: W };
+              elimUpper = { x: srcNode.x + U, y: srcNode.y - W / 2, w: Math.max(0, MaxR - U), h: W };
+              activeRect = { x: srcNode.x + L, y: srcNode.y - W / 2, w: U - L, h: W };
+              midLine = { x1: srcNode.x + Mid, y1: srcNode.y - W / 2, x2: srcNode.x + Mid, y2: srcNode.y + W / 2 };
+              textPos = { x: srcNode.x + MaxR + 25 * invK, y: srcNode.y }; // Lùi text ra sau đuôi MaxR
+              break;
+            case 'WEST':
+              baseRect = { x: srcNode.x - MaxR, y: srcNode.y - W / 2, w: MaxR, h: W };
+              elimLower = { x: srcNode.x - L, y: srcNode.y - W / 2, w: L, h: W };
+              elimUpper = { x: srcNode.x - MaxR, y: srcNode.y - W / 2, w: Math.max(0, MaxR - U), h: W };
+              activeRect = { x: srcNode.x - U, y: srcNode.y - W / 2, w: U - L, h: W };
+              midLine = { x1: srcNode.x - Mid, y1: srcNode.y - W / 2, x2: srcNode.x - Mid, y2: srcNode.y + W / 2 };
+              textPos = { x: srcNode.x - MaxR - 25 * invK, y: srcNode.y };
+              break;
+            case 'NORTH': // Trên UI là trừ Y đi LÊN
+              baseRect = { x: srcNode.x - W / 2, y: srcNode.y - MaxR, w: W, h: MaxR };
+              elimLower = { x: srcNode.x - W / 2, y: srcNode.y - L, w: W, h: L };
+              elimUpper = { x: srcNode.x - W / 2, y: srcNode.y - MaxR, w: W, h: Math.max(0, MaxR - U) };
+              activeRect = { x: srcNode.x - W / 2, y: srcNode.y - U, w: W, h: U - L };
+              midLine = { x1: srcNode.x - W / 2, y1: srcNode.y - Mid, x2: srcNode.x + W / 2, y2: srcNode.y - Mid };
+              textPos = { x: srcNode.x, y: srcNode.y - MaxR - 15 * invK };
+              break;
+            case 'SOUTH': // Trên UI là cộng Y đi XUỐNG
+              baseRect = { x: srcNode.x - W / 2, y: srcNode.y, w: W, h: MaxR };
+              elimLower = { x: srcNode.x - W / 2, y: srcNode.y, w: W, h: L };
+              elimUpper = { x: srcNode.x - W / 2, y: srcNode.y + U, w: W, h: Math.max(0, MaxR - U) };
+              activeRect = { x: srcNode.x - W / 2, y: srcNode.y + L, w: W, h: U - L };
+              midLine = { x1: srcNode.x - W / 2, y1: srcNode.y + Mid, x2: srcNode.x + W / 2, y2: srcNode.y + Mid };
+              textPos = { x: srcNode.x, y: srcNode.y + MaxR + 15 * invK };
+              break;
+          }
+
+          // 1. Vẽ khung toàn cảnh (Base Rect) bằng nét đứt mờ
+          effectLayer.append("rect")
+            .attr("x", baseRect.x).attr("y", baseRect.y)
+            .attr("width", baseRect.w).attr("height", baseRect.h)
+            .attr("fill", "none")
+            .attr("stroke", "#34495e") // Màu xanh đen
+            .attr("stroke-width", 1.5 * invK)
+            .attr("stroke-dasharray", `${4 * invK},${4 * invK}`)
+            .attr("opacity", alpha);
+
+          // 2. Vẽ vùng CÒN ĐANG XÉT (Active Rect)
+          if (activeRect.w > 0 && activeRect.h > 0) {
+            effectLayer.append("rect")
+              .attr("x", activeRect.x).attr("y", activeRect.y)
+              .attr("width", activeRect.w).attr("height", activeRect.h)
+              .attr("fill", "rgba(46, 204, 113, 0.2)") // Xanh lá mờ
+              .attr("opacity", alpha);
+          }
+
+          // 3. Hàm phụ trợ bôi xám vùng bị loại (Eliminated)
+          const drawGrayArea = (rect) => {
+            if (rect.w > 0 && rect.h > 0) {
+              effectLayer.append("rect")
+                .attr("x", rect.x).attr("y", rect.y)
+                .attr("width", rect.w).attr("height", rect.h)
+                .attr("fill", "rgba(189, 195, 199, 0.65)") // Màu xám đục
+                .attr("opacity", alpha);
+            }
+          };
+          drawGrayArea(elimLower);
+          drawGrayArea(elimUpper);
+
+          // 4. Vẽ vạch Mid cắt ngang
+          effectLayer.append("line")
+            .attr("x1", midLine.x1).attr("y1", midLine.y1)
+            .attr("x2", midLine.x2).attr("y2", midLine.y2)
+            .attr("stroke", "#e74c3c") // Đỏ rực
+            .attr("stroke-width", 2.5 * invK)
+            .attr("opacity", alpha);
+
+          // 5. Text chú thích tĩnh (neo ngoài khung MaxR)
+          effectLayer.append("text")
+            .attr("x", textPos.x).attr("y", textPos.y)
+            .text(`${direction} R${cont.round}: [${L.toFixed(0)} - ${U.toFixed(0)}]`)
+            .attr("fill", "#27ae60")
+            .attr("font-size", 12 * invK)
+            .attr("font-weight", "bold")
+            .attr("text-anchor", "middle")
+            .attr("opacity", alpha);
+        }
+      });
+
+      // 3. Vẽ hiệu ứng truyền tin
+      activeEvents.forEach(e => {
+        const age = t - e.time;
+        const alpha = 1 - (age / FADE_WINDOW); // Fading opacity
+
+        // -- BLACK BURST --
+        if (e.event.includes("SEND_BB")) {
+          const src = nodes[e.node];
+          if (!src) return;
+
+          [1, 2, 3].forEach(i => {
+            effectLayer.append("circle")
+              .attr("cx", src.x).attr("cy", src.y)
+              .attr("r", 20 * i + (age * 200)) // Vòng tròn to ra theo thời gian
+              .attr("fill", "none")
+              .attr("stroke", "black")
+              .attr("stroke-width", 2)
+              .attr("opacity", alpha * (0.6 - i * 0.1));
+          });
+        }
+
+        // -- SEND PACKETS (RTB, CTB, DATA) --
+        if (e.event === "SEND" || e.event === "SEND_DATA") {
+          // Lấy nguồn, hỗ trợ cả 'from' và 'node' tùy parser
+          const srcId = e.from !== undefined ? e.from : e.node;
+          const src = nodes[srcId];
+          if (!src) return;
+
+          const pType = (e.type || "DATA").toUpperCase();
+          let color = "#3498db"; // Blue (Xanh dương) cho RTB
+          let marker = "url(#arrow-blue)";
+
+          if (pType.includes("CTB")) {
+            color = "#f1c40f"; // Yellow (Vàng) cho CTB
+            marker = "url(#arrow-yellow)";
+          }
+          if (pType.includes("DATA") || e.event === "SEND_DATA") {
+            color = "#2ecc71"; // Green (Xanh lá) cho DATA
+            marker = "url(#arrow-green)";
+          }
+
+          const destStr = String(e.to || "").toUpperCase();
+
+          // Trường hợp 1: Gửi Broadcast (RTB và CTB)
+          if (destStr === "BROADCAST") {
+            // Vẽ 3 vòng sóng lan tỏa
+            [1, 2, 3].forEach(i => {
+              effectLayer.append("circle")
+                .attr("cx", src.x).attr("cy", src.y)
+                .attr("r", 40 * i + (age * 300)) // Sóng mở rộng nhanh
+                .attr("fill", "none")
+                .attr("stroke", color) // Màu Cam (RTB) hoặc Tím (CTB)
+                .attr("stroke-width", pType.includes("CTB") ? 3 : 1.5) // CTB nét dày hơn để dễ thấy
+                .attr("stroke-dasharray", pType.includes("CTB") ? "10,5" : "5,5") // CTB nét đứt dài hơn
+                .attr("opacity", alpha * (1 - i * 0.15));
+            });
+
+            // Vẽ thêm nhãn lơ lửng ngay cạnh node nguồn để báo hiệu
+            effectLayer.append("text")
+              .attr("x", src.x)
+              .attr("y", (src.y - 25 - (age * 50)) * invK) // Bay lên trên
+              .text(pType + " (Bcast)")
+              .attr("fill", color)
+              .attr("font-size", 12 * invK)
+              .attr("font-weight", "bold")
+              .attr("text-anchor", "middle")
+              .attr("opacity", alpha);
+
+          }
+          // Trường hợp 2: Gửi Unicast (DATA)
+          else if (destStr !== "") {
+            const destId = parseInt(destStr);
+            const dest = nodes[destId];
+            if (!dest) return;
+
+            // Vẽ mũi tên Unicast
+            const dx = dest.x - src.x; const dy = dest.y - src.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist === 0) return; // Tránh chia cho 0
+
+            const shorten = 18 * invK; // Rút ngắn bằng bán kính node
+            const tx = dest.x - (dx / dist) * shorten;
+            const ty = dest.y - (dy / dist) * shorten;
+
+            edgeLayer.append("line")
+              .attr("x1", src.x).attr("y1", src.y)
+              .attr("x2", tx).attr("y2", ty)
+              .attr("stroke", color)
+              .attr("stroke-width", 2 * invK)
+              .attr("opacity", alpha)
+              .attr("marker-end", marker);
+
+            // Label gói tin bay trên mũi tên
+            edgeLayer.append("text")
+              .attr("x", (src.x + tx) / 2)
+              .attr("y", ((src.y + ty) / 2 - 8) * invK)
+              .text(pType)
+              .attr("fill", color)
+              .attr("font-size", 11 * invK)
+              .attr("font-weight", "bold")
+              .attr("text-anchor", "middle")
+              .attr("opacity", alpha);
+          }
+        }
+      });
+    }
+
+    // --- PLAYBACK CONTROLS ---
+    const playPauseBtn = document.getElementById("playPauseBtn");
+
+    // Hàm cập nhật giao diện nút bấm
+    function updatePlayPauseUI() {
+      if (playing) {
+        playPauseBtn.innerHTML = "⏸ Pause";
+        playPauseBtn.className = "btn pause"; // Đổi sang màu đỏ
+      } else {
+        playPauseBtn.innerHTML = "▶ Play";
+        playPauseBtn.className = "btn play";  // Đổi về màu xanh lá
+      }
+    }
+
+    // Hàm chạy mô phỏng
+    function playSim() {
+      if (events.length === 0) return;
+      if (currentTime >= tMax) currentTime = tMin; // Chạy lại từ đầu nếu đã chạy hết
+      playing = true;
+      updatePlayPauseUI();
+      loop();
+    }
+
+    // Hàm dừng mô phỏng
+    function pauseSim() {
+      playing = false;
+      if (animationRef) cancelAnimationFrame(animationRef);
+      updatePlayPauseUI();
+    }
+
+    // Vòng lặp Animation
+    function loop() {
+      if (!playing) return;
+      const speed = parseFloat(document.getElementById("speedInput").value);
+      // Tính bước nhảy
+      currentTime += 0.001 * speed;
+
+      // Nếu chạy đến cuối kịch bản
+      if (currentTime >= tMax) {
+        currentTime = tMax;
+        updateFrame(currentTime);
+        pauseSim(); // Tự động dừng và đổi nút bấm về chữ "Play"
+      } else {
+        updateFrame(currentTime);
+        animationRef = requestAnimationFrame(loop);
+      }
+    }
+
+    // Sự kiện click vào nút Toggle Play/Pause
+    playPauseBtn.addEventListener("click", () => {
+      if (playing) pauseSim();
+      else playSim();
+    });
+
+    // Tự động Pause nếu người dùng chủ động kéo Slider
+    document.getElementById("frameSlider").addEventListener("input", (e) => {
+      pauseSim();
+      currentTime = parseFloat(e.target.value);
+      updateFrame(currentTime);
+    });
+
+    document.getElementById("speedInput").addEventListener("input", (e) => {
+      document.getElementById("speedLabel").innerText = e.target.value + "x";
+    });
+
+    let ws = null;
+    let realtimeMode = false;
+
+    function startRealtime() {
+      if (ws) return;
+
+      ws = new WebSocket("ws://localhost:8080");
+
+      ws.onopen = () => {
+        console.log("Connected to real-time server");
+        realtimeMode = true;
+        pauseSim(); // stop old playback
+      };
+
+      ws.onmessage = (msg) => {
+        const ev = JSON.parse(msg.data);
+
+        // Add event to system
+        events.push(ev);
+
+        // Update node state immediately
+        if (ev.event === "STATE") {
+          if (!nodes[ev.node]) {
+            // create node if not exists
+            nodes[ev.node] = {
+              x: Math.random() * 600,
+              y: Math.random() * 400,
+              state: "IDLE"
+            };
+            initNodes();
+          }
+          nodes[ev.node].state = ev.state;
+        }
+
+        currentTime = ev.time;
+        updateFrame(currentTime);
+      };
+
+      ws.onclose = () => {
+        console.log("Disconnected");
+        ws = null;
+        realtimeMode = false;
+      };
+    }
+    document.getElementById("btnRealtime").addEventListener("click", startRealtime);
+  </script>
+</body>
+
+</html>
