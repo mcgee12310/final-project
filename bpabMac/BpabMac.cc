@@ -1,132 +1,26 @@
 #include "BpabMac.h"
 #include <omnetpp.h>
 #include <sstream>
+#include "BpabTraCIManager.h"
 
 Define_Module(BpabMac);
 
-int BpabMac::tcpServerSocket = -1;
-int BpabMac::tcpClientSocket = -1;
-bool BpabMac::isTcpServerSetup = false;
-
-// --- THÊM KHỐI MACRO NÀY ---
-// Macro này thực hiện 2 việc cùng lúc:
-// 1. In ra file txt của Castalia như bình thường.
-// 2. Tự động đóng gói kèm Thời Gian (simTime) và ném qua TCP Socket lên Frontend.
 #define WEBLOG(msgArgs) \
     do { \
         std::ostringstream _ss; \
         _ss << msgArgs; \
         trace() << _ss.str(); \
-        if (tcpClientSocket != -1) { \
+        /* GỌI SANG BIẾN STATIC CỦA TRACIMANAGER */ \
+        if (BpabTraCIManager::tcpClientSocket != -1) { \
             std::ostringstream _netSs; \
             _netSs << simTime().dbl() << " MAC " << _ss.str() << "\n"; \
             std::string _msg = _netSs.str(); \
-            ::send(tcpClientSocket, _msg.c_str(), _msg.length(), 0); \
+            ::send(BpabTraCIManager::tcpClientSocket, _msg.c_str(), _msg.length(), 0); \
         } \
     } while(0)
 
-void BpabMac::setupTcpServer() {
-#ifdef _WIN32
-    WSADATA wsaData;
-    if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
-        WEBLOG("WSAStartup FAILED"); return;
-    }
-#endif
-
-    tcpServerSocket = socket(AF_INET, SOCK_STREAM, 0);
-    if (tcpServerSocket == -1) {
-        WEBLOG(">>> socket() FAILED"); return;
-    }
-
-    // Cho phép reuse port (tránh lỗi "Address already in use")
-    int opt = 1;
-    setsockopt(tcpServerSocket, SOL_SOCKET, SO_REUSEADDR, (char*)&opt, sizeof(opt));
-
-    struct sockaddr_in serverAddr;
-    serverAddr.sin_family = AF_INET;
-    serverAddr.sin_port = htons(9999);
-    serverAddr.sin_addr.s_addr = INADDR_ANY;
-
-    if (bind(tcpServerSocket, (struct sockaddr*)&serverAddr, sizeof(serverAddr)) < 0) {
-        WEBLOG(">>> bind() FAILED - port 9999 co the da bi chiem!");
-#ifdef _WIN32
-        WEBLOG(">>> WSAGetLastError: " << WSAGetLastError());
-#endif
-        return;
-    }
-
-    if (listen(tcpServerSocket, 5) < 0) {
-        WEBLOG(">>> listen() FAILED"); return;
-    }
-
-    // Set non-blocking
-#ifdef _WIN32
-    u_long mode = 1;
-    ioctlsocket(tcpServerSocket, FIONBIO, &mode);
-#else
-    fcntl(tcpServerSocket, F_SETFL, fcntl(tcpServerSocket, F_GETFL, 0) | O_NONBLOCK);
-#endif
-
-    WEBLOG(">>> TCP Server da bind thanh cong tren port 9999!");
-    setTimer(100, 0.01);
-}
-
-void BpabMac::pollTcpSocket() {
-    if (tcpClientSocket == -1) {
-        // 1. CHỜ CLIENT (Node.js/Python) KẾT NỐI
-        struct sockaddr_in clientAddr;
-        socklen_t clientLen = sizeof(clientAddr);
-        tcpClientSocket = accept(tcpServerSocket, (struct sockaddr*)&clientAddr, &clientLen);
-
-        if (tcpClientSocket != -1) {
-            // Có client kết nối -> Set client thành Non-blocking
-#ifdef _WIN32
-            u_long mode = 1;
-            ioctlsocket(tcpClientSocket, FIONBIO, &mode);
-#else
-            int flags = fcntl(tcpClientSocket, F_GETFL, 0);
-            fcntl(tcpClientSocket, F_SETFL, flags | O_NONBLOCK);
-#endif
-            WEBLOG("TraCI Controller Connected!");
-        }
-    } else {
-        // 2. ĐỌC LỆNH TỪ BÊN NGOÀI
-        char buffer[1024];
-        int bytesRead = recv(tcpClientSocket, buffer, sizeof(buffer) - 1, 0);
-
-        if (bytesRead > 0) {
-            buffer[bytesRead] = '\0';
-            std::string cmd(buffer);
-            WEBLOG("Received Command: " << cmd);
-
-            // ---- XỬ LÝ LỆNH TRACI TẠI ĐÂY ----
-            if (cmd.find("SPAWN_PACKET") != std::string::npos) {
-                // Ví dụ: Bắn gói tin mới theo lệnh từ ngoài
-            }
-
-            // Phản hồi lại Client (TraCI Response)
-            std::string response = "ACK_CMD\n";
-            ::send(tcpClientSocket, response.c_str(), response.length(), 0);
-        }
-        else if (bytesRead == 0) {
-            // Client ngắt kết nối
-            tcpClientSocket = -1;
-            WEBLOG("TraCI Controller Disconnected.");
-        }
-    }
-
-    // Lặp lại việc quét
-    setTimer(100, 0.01);
-}
-
 void BpabMac::startup() {
     VirtualMac::startup();
-
-    if (self == 0 && !isTcpServerSetup) {
-        WEBLOG(">>> Setting up TCP server...");
-        setupTcpServer();
-        isTcpServerSetup = true;
-    }
 
     cModule* node = getParentModule()->getParentModule();
     cModule* mobility = node->getSubmodule("MobilityManager");
@@ -162,28 +56,10 @@ void BpabMac::startup() {
     isTransmitting = false;
 
     packetToBroadcast = NULL;
-
-    setTimer(99, 0.1);
 }
 
 BpabMac::~BpabMac() {
     if (packetToBroadcast) cancelAndDelete(packetToBroadcast);
-
-    if (self == 0) {
-        if (tcpClientSocket != -1)
-        #ifdef _WIN32
-            closesocket(tcpClientSocket);
-        #else
-            close(tcpClientSocket);
-        #endif
-
-        #ifdef _WIN32
-            closesocket(tcpServerSocket);
-            WSACleanup();
-        #else
-            close(tcpServerSocket);
-        #endif
-    }
 }
 
 // --- 1. XU LY GOI TIN TU TANG MANG (Network Layer) ---
@@ -452,24 +328,6 @@ void BpabMac::timerFiredCallback(int timerIndex) {
             if (bpabMacState != BPAB_WAIT_DATA) break;
             WEBLOG("EVENT:RADIO_STATE | Node:" << self << " | Mode:RX | Goal:WAIT_DATA");
             toRadioLayer(createRadioCommand(SET_STATE, RX));
-            break;
-        }
-
-        case 99: {
-            if (tcpClientSocket != -1) {
-                // ĐÃ CÓ WEB UI KẾT NỐI! -> Xả log tọa độ và KHÔNG gọi setTimer nữa (dừng lặp)
-                WEBLOG("EVENT:POS | Node:" << self
-                       << " | x:" << mobilityModule->getLocation().x
-                       << " | y:" << mobilityModule->getLocation().y);
-            } else {
-                // CHƯA CÓ AI KẾT NỐI -> Chờ thêm 0.5 giây rồi kiểm tra lại
-                setTimer(99, 0.5);
-            }
-            break;
-        }
-
-        case 100:{
-            pollTcpSocket();
             break;
         }
 

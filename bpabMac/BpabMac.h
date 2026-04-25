@@ -76,12 +76,6 @@ class BpabMac: public VirtualMac {
     void endContention(bool won); // Ket thuc tranh chap (Thang/Thua)
 
  protected:
-    static int tcpServerSocket;
-    static int tcpClientSocket;
-    static bool isTcpServerSetup;
-    void setupTcpServer();
-    void pollTcpSocket();
-
     // --- Cac ham bat buoc cua Castalia VirtualMac ---
     void startup();
     void fromNetworkLayer(cPacket *, int);

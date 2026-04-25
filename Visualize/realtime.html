@@ -264,6 +264,7 @@
     let lastWallTime = Date.now();
     let hasCenteredCamera = false;
     const FADE_WINDOW = 0.5;
+    const OFFSET = 5000;
 
     const latestStates = {};
     const latestWinners = {};
@@ -337,9 +338,28 @@
       ev.wallTime = Date.now();
       events.push(ev);
 
-      if (ev.event === "POS" && ev.node != null && !nodes[ev.node]) {
-        nodes[ev.node] = { x: ev.x, y: -(ev.y || 0) };
-        drawNodes();
+      if (ev.event === "POS" && ev.node !== undefined) {
+        // Lọc xe bị ném ra nghĩa địa (> 19000)
+        if (ev.x >= 19000 || ev.y >= 19000) {
+          delete nodes[ev.node];
+          initNodes();
+        } else {
+          // TRỪ ĐI OFFSET ĐỂ ĐƯA VỀ LẠI TỌA ĐỘ GỐC CỦA SUMO
+          let real_x = ev.x - OFFSET;
+          let real_y = ev.y - OFFSET;
+
+          if (!nodes[ev.node]) {
+            nodes[ev.node] = { x: real_x, y: -(real_y || 0), state: "IDLE" };
+            initNodes();
+          } else {
+            nodes[ev.node].x = real_x;
+            nodes[ev.node].y = -real_y; // Tùy thuộc vào việc map của bạn có lật trục Y không
+
+            nodeLayer.selectAll("g").filter(d => d[0] == ev.node)
+              .transition().duration(100)
+              .attr("transform", `translate(${real_x}, ${-real_y})`);
+          }
+        }
       }
 
       if (ev.event === "STATE" && ev.node !== undefined) {
