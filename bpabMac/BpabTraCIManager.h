@@ -19,8 +19,11 @@ class BpabTraCIManager : public cSimpleModule {
   public:
     // Đặt public static để BpabMac có thể truy cập và gửi Log (WEBLOG)
     static int tcpClientSocket;
+    static void writeToUnifiedLog(double time, int nodeId, std::string event, std::string data);
 
   protected:
+    static std::ofstream unifiedLog;
+
     int tcpServerSocket;
     int tcpPort;
     cMessage *pollTimer;

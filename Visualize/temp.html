@@ -1,0 +1,742 @@
+<!doctype html>
+<html lang="vi">
+
+<head>
+  <meta charset="utf-8" />
+  <title>BPAB Protocol Visualizer</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <style>
+    body {
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      margin: 0;
+      background: #f4f7f6;
+      color: #333;
+      overflow-y: auto;
+      padding-bottom: 80px;
+      box-sizing: border-box;
+    }
+
+    h2 {
+      margin-top: 0;
+      color: #2c3e50;
+    }
+
+    #controlsBox {
+      background: #fff;
+      padding: 15px;
+      border-radius: 8px;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+      margin: 10px;
+    }
+
+    .btn {
+      padding: 8px 12px;
+      border-radius: 4px;
+      border: none;
+      background: #3498db;
+      color: white;
+      cursor: pointer;
+      font-weight: bold;
+      margin-right: 5px;
+    }
+
+    .btn:hover {
+      background: #2980b9;
+    }
+
+    .btn.play {
+      background: #2ecc71;
+    }
+
+    .btn.play:hover {
+      background: #27ae60;
+    }
+
+    .btn.pause {
+      background: #e74c3c;
+    }
+
+    .btn.pause:hover {
+      background: #c0392b;
+    }
+
+    textarea {
+      width: 100%;
+      height: 80px;
+      font-family: monospace;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      padding: 5px;
+      box-sizing: border-box;
+    }
+
+    .legend-item {
+      display: inline-flex;
+      align-items: center;
+      margin-right: 15px;
+      font-size: 12px;
+    }
+
+    .color-box {
+      width: 12px;
+      height: 12px;
+      display: inline-block;
+      margin-right: 5px;
+      border-radius: 3px;
+    }
+
+    #main {
+      display: flex;
+      gap: 15px;
+      margin: 0 10px 10px 10px;
+      height: 85vh;
+      min-height: 700px;
+    }
+
+    #canvas-wrap {
+      flex: 4;
+      background: #fff;
+      border-radius: 8px;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+      overflow: hidden;
+      position: relative;
+    }
+
+    #infoPanel {
+      flex: 1;
+      background: #fff;
+      padding: 15px;
+      border-radius: 8px;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+      overflow-y: auto;
+      font-size: 13px;
+      box-sizing: border-box;
+    }
+
+    .event-line {
+      padding: 4px 0;
+      border-bottom: 1px solid #eee;
+      font-family: monospace;
+    }
+
+    .event-line.highlight {
+      background: #fff3cd;
+      font-weight: bold;
+      color: #856404;
+    }
+
+    #frameBar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: #fff;
+      padding: 10px 20px;
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      box-shadow: 0 -5px 15px rgba(0, 0, 0, 0.1);
+      z-index: 1000;
+    }
+
+    #frameSlider {
+      flex: 1;
+      cursor: pointer;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div id="controlsBox">
+    <h2>⚙ BPAB Simulator Controls</h2>
+    <div style="display:flex;gap:16px;">
+      <div style="flex:2;">
+        <label><b>Paste Castalia Log Here:</b></label>
+        <textarea id="logArea" placeholder="Paste your Castalia-Trace.txt content here..."></textarea>
+        <div style="margin-top:5px;">
+          <button id="btnParse" class="btn">Load &amp; Parse Log</button>
+          <span id="parseStatus" style="margin-left:10px;font-size:12px;color:#27ae60;"></span>
+        </div>
+      </div>
+      <div style="flex:1;border-left:2px solid #eee;padding-left:20px;">
+        <label><b>Legend:</b></label><br>
+        <div class="legend-item"><span class="color-box" style="background:#bdc3c7;"></span> IDLE</div>
+        <div class="legend-item"><span class="color-box" style="background:#f1c40f;"></span> CONTENDING</div>
+        <div class="legend-item"><span class="color-box" style="background:#3498db;"></span> WAIT_CTB/DATA</div>
+        <div class="legend-item"><span class="color-box" style="background:#e67e22;"></span> PRE_CTB</div>
+        <div class="legend-item"><span class="color-box" style="background:#ffd700;border-radius:50%"></span> WINNER
+        </div><br>
+        <div class="legend-item"><span style="color:#000;font-weight:bold;">○</span> Black-Burst (BB)</div>
+        <div class="legend-item"><span style="color:#3498db;font-weight:bold;">→</span> RTB</div>
+        <div class="legend-item"><span style="color:#f1c40f;font-weight:bold;">→</span> CTB</div>
+        <div class="legend-item"><span style="color:#2ecc71;font-weight:bold;">→</span> DATA</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="main">
+    <div id="canvas-wrap">
+      <svg id="svg" width="100%" height="100%">
+        <defs>
+          <marker id="arrow-green" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L9,3 z" fill="#2ecc71" />
+          </marker>
+          <marker id="arrow-blue" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L9,3 z" fill="#3498db" />
+          </marker>
+          <marker id="arrow-yellow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L9,3 z" fill="#f1c40f" />
+          </marker>
+        </defs>
+        <g id="zoom-layer">
+          <g id="grid-layer"></g>
+          <g id="effect-layer"></g>
+          <g id="edge-layer"></g>
+          <g id="node-layer"></g>
+        </g>
+      </svg>
+    </div>
+    <div id="infoPanel">
+      <h3>Event Log</h3>
+      <div id="eventList"></div>
+    </div>
+  </div>
+
+  <div id="frameBar">
+    <button id="playPauseBtn" class="btn play">▶ Play</button>
+    <label>Speed:</label>
+    <input type="range" id="speedInput" min="0" max="12" value="4" step="1">
+    <span id="speedLabel">1x</span>
+    <input id="frameSlider" type="range" min="0" max="100" value="0" step="0.01">
+    <div id="timeLabel" style="min-width:80px;font-weight:bold;color:#2980b9;">0.0000 s</div>
+  </div>
+
+  <script>
+    // ─── STATE ───────────────────────────────────────────────────────────────────
+    let events = [];
+    let nodePositions = {};   // nodeId -> latest {x, y} at any time (used for initNodes)
+    let tMin = 0, tMax = 0;
+    let currentTime = 0;
+    let playing = false;
+    let animationRef = null;
+    let lastRafTime = null;   // wall-clock timestamp for smooth real-time stepping
+
+    const FADE_WINDOW = 0.5;
+    const speedLevels = [0.25, 0.5, 0.75, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+
+    // ─── HELPER: get current playback speed from slider ──────────────────────────
+    // speedInput.value is an index 0–12; map it through speedLevels[]
+    function getSpeed() {
+      const index = parseInt(document.getElementById("speedInput").value);
+      return speedLevels[Math.max(0, Math.min(index, speedLevels.length - 1))];
+    }
+
+    // ─── D3 SETUP ────────────────────────────────────────────────────────────────
+    const svg = d3.select("#svg");
+    const zoomLayer = d3.select("#zoom-layer");
+    const nodeLayer = d3.select("#node-layer");
+    const edgeLayer = d3.select("#edge-layer");
+    const effectLayer = d3.select("#effect-layer");
+    const eventListDiv = document.getElementById("eventList");
+
+    const zoom = d3.zoom().scaleExtent([0.05, 20]).on("zoom", (e) => {
+      const k = e.transform.k;
+      const invK = 1 / k;
+      zoomLayer.attr("transform", e.transform);
+      drawDynamicGrid(e.transform);
+      nodeLayer.selectAll(".node-bg").attr("r", 15 * invK).attr("stroke-width", 2 * invK);
+      nodeLayer.selectAll("text").attr("font-size", 12 * invK).attr("y", 4 * invK);
+      edgeLayer.selectAll("line").attr("stroke-width", 2 * invK);
+      effectLayer.selectAll("circle").attr("stroke-width", 1.5 * invK);
+    });
+    svg.call(zoom);
+
+    // ─── PARSER ──────────────────────────────────────────────────────────────────
+    document.getElementById("btnParse").addEventListener("click", () => {
+      const text = document.getElementById("logArea").value.trim();
+      if (!text) { alert("Please paste log data!"); return; }
+
+      events = [];
+      nodePositions = {};
+
+      // Split on any line ending, filter blanks and headers
+      const lines = text.split(/\r?\n/);
+
+      lines.forEach(rawLine => {
+        const line = rawLine.trim();
+        if (!line || line.startsWith("Time")) return;
+
+        // Format: Time \t Node \t EventType \t Details
+        const parts = line.split('\t');
+        if (parts.length < 4) return;
+
+        const timeVal = parseFloat(parts[0]);
+        if (isNaN(timeVal)) return;
+
+        const detailsRaw = parts[3];
+        if (!detailsRaw || !detailsRaw.includes("EVENT:")) return;
+
+        // Parse key:value pairs separated by " | "
+        const chunks = detailsRaw.split(/\s*\|\s*/);
+        const eventName = chunks[0].replace("EVENT:", "").trim();
+
+        let evObj = { time: timeVal, event: eventName };
+
+        for (let i = 1; i < chunks.length; i++) {
+          const idx = chunks[i].indexOf(":");
+          if (idx === -1) continue;
+          const k = chunks[i].slice(0, idx).trim().toLowerCase();
+          const v = chunks[i].slice(idx + 1).trim();
+          evObj[k] = isNaN(v) ? v : parseFloat(v);
+        }
+
+        events.push(evObj);
+
+        // Track latest position per node (we only need one snapshot for initNodes)
+        if (eventName === "POS" && evObj.node !== undefined) {
+          nodePositions[evObj.node] = { x: evObj.x, y: -(evObj.y || 0) };
+        }
+      });
+
+      if (events.length === 0) {
+        alert("No valid events found! Make sure the log is copied correctly (tab-separated).");
+        return;
+      }
+
+      events.sort((a, b) => a.time - b.time);
+
+      tMin = events[0].time;
+      tMax = events[events.length - 1].time;
+      currentTime = tMin;
+
+      const slider = document.getElementById("frameSlider");
+      slider.min = tMin;
+      slider.max = tMax;
+      slider.value = tMin;
+      slider.step = (tMax - tMin) / 5000;   // ~5000 steps across full range
+
+      document.getElementById("parseStatus").textContent =
+        `✔ Loaded ${events.length} events  (${tMin.toFixed(2)}s – ${tMax.toFixed(2)}s)`;
+
+      initNodes();
+      updateFrame(currentTime);
+    });
+
+    // ─── GRID ────────────────────────────────────────────────────────────────────
+    function drawDynamicGrid(transform) {
+      const svgEl = document.getElementById("svg");
+      const width = svgEl.clientWidth || 1000;
+      const height = svgEl.clientHeight || 800;
+
+      const xMin = (-transform.x) / transform.k;
+      const xMax = (width - transform.x) / transform.k;
+      const yMin = (-transform.y) / transform.k;
+      const yMax = (height - transform.y) / transform.k;
+
+      let step = 100;
+      if (transform.k <= 0.1) step = 1000;
+      else if (transform.k <= 0.5) step = 200;
+      else if (transform.k <= 2) step = 100;
+      else if (transform.k <= 5) step = 20;
+      else step = 10;
+
+      const gridLayer = d3.select("#grid-layer");
+      gridLayer.selectAll("*").remove();
+      const invK = 1 / transform.k;
+
+      const startX = Math.floor(xMin / step) * step;
+      const endX = Math.ceil(xMax / step) * step;
+      const startY = Math.floor(yMin / step) * step;
+      const endY = Math.ceil(yMax / step) * step;
+
+      for (let x = startX; x <= endX; x += step) {
+        gridLayer.append("line")
+          .attr("x1", x).attr("y1", startY).attr("x2", x).attr("y2", endY)
+          .attr("stroke", x === 0 ? "#95a5a6" : "#ecf0f1")
+          .attr("stroke-width", x === 0 ? 2 * invK : 1 * invK)
+          .attr("stroke-dasharray", x === 0 ? "" : `${5 * invK},${5 * invK}`);
+        gridLayer.append("text")
+          .attr("x", x).attr("y", yMin + 15 * invK).text(x)
+          .attr("fill", "#bdc3c7").attr("font-size", 12 * invK).attr("text-anchor", "middle");
+      }
+
+      for (let y = startY; y <= endY; y += step) {
+        gridLayer.append("line")
+          .attr("x1", startX).attr("y1", y).attr("x2", endX).attr("y2", y)
+          .attr("stroke", y === 0 ? "#95a5a6" : "#ecf0f1")
+          .attr("stroke-width", y === 0 ? 2 * invK : 1 * invK)
+          .attr("stroke-dasharray", y === 0 ? "" : `${5 * invK},${5 * invK}`);
+        gridLayer.append("text")
+          .attr("x", xMin + 5 * invK).attr("y", y - 5 * invK)
+          .text(-y === 0 ? 0 : -y)
+          .attr("fill", "#bdc3c7").attr("font-size", 12 * invK).attr("text-anchor", "start");
+      }
+    }
+
+    // ─── INIT NODES ──────────────────────────────────────────────────────────────
+    function initNodes() {
+      nodeLayer.selectAll("*").remove();
+
+      const nodeGroups = nodeLayer.selectAll("g")
+        .data(Object.entries(nodePositions))
+        .enter().append("g")
+        .attr("transform", d => `translate(${d[1].x},${d[1].y})`);
+
+      nodeGroups.append("circle")
+        .attr("class", "node-bg")
+        .attr("r", 15)
+        .attr("fill", "#bdc3c7")
+        .attr("stroke", "#7f8c8d")
+        .attr("stroke-width", 2);
+
+      nodeGroups.append("text")
+        .text(d => d[0])
+        .attr("y", 4)
+        .attr("text-anchor", "middle")
+        .attr("font-size", 12)
+        .attr("fill", "white")
+        .attr("font-weight", "bold");
+
+      svg.transition().duration(750).call(
+        zoom.transform, d3.zoomIdentity.translate(200, 200).scale(1.2)
+      );
+    }
+
+    // ─── STATE COLOR ─────────────────────────────────────────────────────────────
+    function getStateColor(state, isWinner) {
+      if (isWinner) return "#ffd700";
+      if (state === "CONTENDING") return "#f1c40f";
+      if (state && state.includes("WAIT")) return "#3498db";
+      if (state === "PRE_CTB") return "#e67e22";
+      return "#bdc3c7";
+    }
+
+    // ─── UPDATE FRAME ────────────────────────────────────────────────────────────
+    function updateFrame(t) {
+      // Clamp
+      t = Math.max(tMin, Math.min(tMax, t));
+      currentTime = t;
+
+      document.getElementById("timeLabel").innerText = t.toFixed(4) + " s";
+      document.getElementById("frameSlider").value = t;
+
+      const tf = d3.zoomTransform(svg.node());
+      const invK = 1 / tf.k;
+
+      // ── Accumulate state up to t ──────────────────────────────────────────────
+      let latestStates = {};
+      let latestWinners = {};
+      let latestPos = {};   // nodeId -> {x, y} — most recent POS at/before t
+      let nodeToSrc = {};
+      let activeContentions = {};
+
+      events.forEach(e => {
+        if (e.time > t) return;
+
+        // Positions
+        if (e.event === "POS" && e.node !== undefined) {
+          latestPos[e.node] = { x: e.x, y: -(e.y || 0) };
+        }
+
+        // States
+        if (e.event === "STATE" && e.node !== undefined) {
+          latestStates[e.node] = e.state;
+          if (e.state === "IDLE" || e.state === "WAIT_CTB") {
+            latestWinners[e.node] = false;
+          }
+        }
+
+        if (e.event === "WINNER" && e.node !== undefined) {
+          latestWinners[e.node] = true;
+        }
+        if (e.event === "RCV_DATA" && e.status === "SUCCESS" && e.node !== undefined) {
+          latestWinners[e.node] = false;
+        }
+
+        // BPAB contention tracking
+        if (e.event === "JOIN_BPAB" && e.node !== undefined && e.src !== undefined) {
+          nodeToSrc[e.node] = e.src;
+          if (!activeContentions[e.src]) activeContentions[e.src] = {};
+          activeContentions[e.src].direction = (e.dir || "EAST").toUpperCase();
+          activeContentions[e.src].maxR = parseFloat(e.maxr || 300);
+          activeContentions[e.src].widthW = parseFloat(e.width || 50);
+        }
+
+        if (e.event === "CONTENSION_ROUND" && e.node !== undefined && e.range !== undefined) {
+          const src = nodeToSrc[e.node];
+          if (src !== undefined) {
+            const match = String(e.range).match(/\[([\d.]+)\s*,\s*([\d.]+)\]/);
+            if (match) {
+              activeContentions[src] = {
+                ...activeContentions[src],
+                l: parseFloat(match[1]),
+                u: parseFloat(match[2]),
+                time: e.time,
+                round: parseInt(e.round || 0)
+              };
+            }
+          }
+        }
+      });
+
+      // ── Move nodes to their latest position ───────────────────────────────────
+      nodeLayer.selectAll("g").each(function (d) {
+        const nid = parseInt(d[0]);
+        const pos = latestPos[nid] || nodePositions[nid];
+        if (pos) {
+          d3.select(this).attr("transform", `translate(${pos.x},${pos.y})`);
+        }
+        const st = latestStates[nid] || "IDLE";
+        const isWin = latestWinners[nid] || false;
+        d3.select(this).select("circle")
+          .attr("fill", getStateColor(st, isWin))
+          .attr("stroke-width", 2 * invK);
+      });
+
+      // ── Active events window ─────────────────────────────────────────────────
+      const activeEvents = events.filter(e => e.time <= t && e.time > t - FADE_WINDOW);
+
+      // Event log panel
+      eventListDiv.innerHTML = activeEvents.slice(-20).reverse().map(e =>
+        `<div class="event-line highlight">[${e.time.toFixed(4)}] N${e.node !== undefined ? e.node : (e.from !== undefined ? e.from : '-')}: ${e.event}${e.type ? ' (' + e.type + ')' : ''}${e.status ? ' ' + e.status : ''}</div>`
+      ).join('');
+
+      effectLayer.selectAll("*").remove();
+      edgeLayer.selectAll("*").remove();
+
+      // ── BPAB contention rectangles ───────────────────────────────────────────
+      Object.keys(activeContentions).forEach(srcId => {
+        const cont = activeContentions[srcId];
+        if (!cont.time) return;
+        const age = t - cont.time;
+        if (age < 0 || age >= 0.8) return;
+
+        const srcNode = latestPos[srcId] || nodePositions[srcId];
+        if (!srcNode) return;
+
+        const alpha = Math.max(0, 1 - age / 0.8);
+        const L = cont.l, U = cont.u;
+        const direction = cont.direction || "EAST";
+        const MaxR = cont.maxR || 300;
+        const W = cont.widthW || 50;
+        const Mid = (L + U) / 2;
+
+        let baseRect = {}, elimLower = {}, elimUpper = {}, activeRect = {}, midLine = {}, textPos = {};
+
+        switch (direction) {
+          case 'EAST':
+            baseRect = { x: srcNode.x, y: srcNode.y - W / 2, w: MaxR, h: W };
+            elimLower = { x: srcNode.x, y: srcNode.y - W / 2, w: L, h: W };
+            elimUpper = { x: srcNode.x + U, y: srcNode.y - W / 2, w: Math.max(0, MaxR - U), h: W };
+            activeRect = { x: srcNode.x + L, y: srcNode.y - W / 2, w: U - L, h: W };
+            midLine = { x1: srcNode.x + Mid, y1: srcNode.y - W / 2, x2: srcNode.x + Mid, y2: srcNode.y + W / 2 };
+            textPos = { x: srcNode.x + MaxR + 25 * invK, y: srcNode.y };
+            break;
+          case 'WEST':
+            baseRect = { x: srcNode.x - MaxR, y: srcNode.y - W / 2, w: MaxR, h: W };
+            elimLower = { x: srcNode.x - L, y: srcNode.y - W / 2, w: L, h: W };
+            elimUpper = { x: srcNode.x - MaxR, y: srcNode.y - W / 2, w: Math.max(0, MaxR - U), h: W };
+            activeRect = { x: srcNode.x - U, y: srcNode.y - W / 2, w: U - L, h: W };
+            midLine = { x1: srcNode.x - Mid, y1: srcNode.y - W / 2, x2: srcNode.x - Mid, y2: srcNode.y + W / 2 };
+            textPos = { x: srcNode.x - MaxR - 25 * invK, y: srcNode.y };
+            break;
+          case 'NORTH':
+            baseRect = { x: srcNode.x - W / 2, y: srcNode.y - MaxR, w: W, h: MaxR };
+            elimLower = { x: srcNode.x - W / 2, y: srcNode.y - L, w: W, h: L };
+            elimUpper = { x: srcNode.x - W / 2, y: srcNode.y - MaxR, w: W, h: Math.max(0, MaxR - U) };
+            activeRect = { x: srcNode.x - W / 2, y: srcNode.y - U, w: W, h: U - L };
+            midLine = { x1: srcNode.x - W / 2, y1: srcNode.y - Mid, x2: srcNode.x + W / 2, y2: srcNode.y - Mid };
+            textPos = { x: srcNode.x, y: srcNode.y - MaxR - 15 * invK };
+            break;
+          case 'SOUTH':
+            baseRect = { x: srcNode.x - W / 2, y: srcNode.y, w: W, h: MaxR };
+            elimLower = { x: srcNode.x - W / 2, y: srcNode.y, w: W, h: L };
+            elimUpper = { x: srcNode.x - W / 2, y: srcNode.y + U, w: W, h: Math.max(0, MaxR - U) };
+            activeRect = { x: srcNode.x - W / 2, y: srcNode.y + L, w: W, h: U - L };
+            midLine = { x1: srcNode.x - W / 2, y1: srcNode.y + Mid, x2: srcNode.x + W / 2, y2: srcNode.y + Mid };
+            textPos = { x: srcNode.x, y: srcNode.y + MaxR + 15 * invK };
+            break;
+        }
+
+        effectLayer.append("rect")
+          .attr("x", baseRect.x).attr("y", baseRect.y).attr("width", baseRect.w).attr("height", baseRect.h)
+          .attr("fill", "none").attr("stroke", "#34495e").attr("stroke-width", 1.5 * invK)
+          .attr("stroke-dasharray", `${4 * invK},${4 * invK}`).attr("opacity", alpha);
+
+        if (activeRect.w > 0 && activeRect.h > 0)
+          effectLayer.append("rect")
+            .attr("x", activeRect.x).attr("y", activeRect.y).attr("width", activeRect.w).attr("height", activeRect.h)
+            .attr("fill", "rgba(46,204,113,0.2)").attr("opacity", alpha);
+
+        const drawGray = r => {
+          if (r.w > 0 && r.h > 0)
+            effectLayer.append("rect")
+              .attr("x", r.x).attr("y", r.y).attr("width", r.w).attr("height", r.h)
+              .attr("fill", "rgba(189,195,199,0.65)").attr("opacity", alpha);
+        };
+        drawGray(elimLower);
+        drawGray(elimUpper);
+
+        effectLayer.append("line")
+          .attr("x1", midLine.x1).attr("y1", midLine.y1).attr("x2", midLine.x2).attr("y2", midLine.y2)
+          .attr("stroke", "#e74c3c").attr("stroke-width", 2.5 * invK).attr("opacity", alpha);
+
+        effectLayer.append("text")
+          .attr("x", textPos.x).attr("y", textPos.y)
+          .text(`${direction} R${cont.round}: [${L.toFixed(0)}-${U.toFixed(0)}]`)
+          .attr("fill", "#27ae60").attr("font-size", 12 * invK).attr("font-weight", "bold")
+          .attr("text-anchor", "middle").attr("opacity", alpha);
+      });
+
+      // ── Waves and arrows ─────────────────────────────────────────────────────
+      activeEvents.forEach(e => {
+        const age = t - e.time;
+        const alpha = Math.max(0, 1 - age / FADE_WINDOW);
+
+        // Black-Burst
+        if (e.event === "SEND_BB") {
+          const src = latestPos[e.node] || nodePositions[e.node];
+          if (!src) return;
+          [1, 2, 3].forEach(i => {
+            effectLayer.append("circle")
+              .attr("cx", src.x).attr("cy", src.y)
+              .attr("r", 20 * i + age * 200)
+              .attr("fill", "none").attr("stroke", "black").attr("stroke-width", 2)
+              .attr("opacity", alpha * (0.6 - i * 0.1));
+          });
+        }
+
+        // SEND / SEND_DATA
+        if (e.event === "SEND" || e.event === "SEND_DATA") {
+          const srcId = e.from !== undefined ? e.from : e.node;
+          const src = latestPos[srcId] || nodePositions[srcId];
+          if (!src) return;
+
+          const pType = (e.type || "DATA").toUpperCase();
+          let color = "#3498db";
+          let marker = "url(#arrow-blue)";
+          if (pType.includes("CTB")) { color = "#f1c40f"; marker = "url(#arrow-yellow)"; }
+          if (pType.includes("DATA") || e.event === "SEND_DATA") { color = "#2ecc71"; marker = "url(#arrow-green)"; }
+
+          const destStr = String(e.to || "").toUpperCase();
+
+          if (destStr === "BROADCAST") {
+            [1, 2, 3].forEach(i => {
+              effectLayer.append("circle")
+                .attr("cx", src.x).attr("cy", src.y)
+                .attr("r", 40 * i + age * 300)
+                .attr("fill", "none").attr("stroke", color)
+                .attr("stroke-width", pType.includes("CTB") ? 3 : 1.5)
+                .attr("stroke-dasharray", pType.includes("CTB") ? "10,5" : "5,5")
+                .attr("opacity", alpha * (1 - i * 0.15));
+            });
+            effectLayer.append("text")
+              .attr("x", src.x).attr("y", src.y - (25 + age * 50) * invK)
+              .text(pType + " (Bcast)")
+              .attr("fill", color).attr("font-size", 12 * invK).attr("font-weight", "bold")
+              .attr("text-anchor", "middle").attr("opacity", alpha);
+
+          } else if (destStr !== "") {
+            const destId = parseInt(destStr);
+            const dest = latestPos[destId] || nodePositions[destId];
+            if (!dest) return;
+
+            const dx = dest.x - src.x, dy = dest.y - src.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist === 0) return;
+
+            const shorten = 18 * invK;
+            const tx = dest.x - (dx / dist) * shorten;
+            const ty = dest.y - (dy / dist) * shorten;
+
+            edgeLayer.append("line")
+              .attr("x1", src.x).attr("y1", src.y).attr("x2", tx).attr("y2", ty)
+              .attr("stroke", color).attr("stroke-width", 2 * invK)
+              .attr("opacity", alpha).attr("marker-end", marker);
+
+            edgeLayer.append("text")
+              .attr("x", (src.x + tx) / 2).attr("y", (src.y + ty) / 2 - 8 * invK)
+              .text(pType)
+              .attr("fill", color).attr("font-size", 11 * invK).attr("font-weight", "bold")
+              .attr("text-anchor", "middle").attr("opacity", alpha);
+          }
+        }
+      });
+    }
+
+    // ─── PLAYBACK ────────────────────────────────────────────────────────────────
+    const playPauseBtn = document.getElementById("playPauseBtn");
+
+    function updatePlayPauseUI() {
+      if (playing) {
+        playPauseBtn.innerHTML = "⏸ Pause";
+        playPauseBtn.className = "btn pause";
+      } else {
+        playPauseBtn.innerHTML = "▶ Play";
+        playPauseBtn.className = "btn play";
+      }
+    }
+
+    function playSim() {
+      if (events.length === 0) return;
+      if (currentTime >= tMax) currentTime = tMin;
+      playing = true;
+      lastRafTime = null;
+      updatePlayPauseUI();
+      animationRef = requestAnimationFrame(loop);
+    }
+
+    function pauseSim() {
+      playing = false;
+      if (animationRef) { cancelAnimationFrame(animationRef); animationRef = null; }
+      updatePlayPauseUI();
+    }
+
+    function loop(wallTime) {
+      if (!playing) return;
+
+      // FIX: use getSpeed() to properly map slider index → speedLevels value
+      const speed = getSpeed();
+
+      if (lastRafTime !== null) {
+        // wallTime is in ms; convert to simulated seconds
+        const wallDelta = (wallTime - lastRafTime) / 1000;   // real seconds elapsed
+        currentTime += wallDelta * speed;
+      }
+      lastRafTime = wallTime;
+
+      if (currentTime >= tMax) {
+        currentTime = tMax;
+        updateFrame(currentTime);
+        pauseSim();
+        return;
+      }
+
+      updateFrame(currentTime);
+      animationRef = requestAnimationFrame(loop);
+    }
+
+    playPauseBtn.addEventListener("click", () => {
+      if (playing) pauseSim(); else playSim();
+    });
+
+    document.getElementById("frameSlider").addEventListener("input", e => {
+      pauseSim();
+      currentTime = parseFloat(e.target.value);
+      if (events.length > 0) updateFrame(currentTime);
+    });
+
+    document.getElementById("speedInput").addEventListener("input", (e) => {
+      // FIX: use getSpeed() — single source of truth for speed value
+      const speed = getSpeed();
+      document.getElementById("speedLabel").innerText = speed + "x";
+    });
+
+    // Sync label on page load to match default slider value (index 4 → 2x)
+    document.getElementById("speedLabel").innerText = getSpeed() + "x";
+  </script>
+</body>
+
+</html>

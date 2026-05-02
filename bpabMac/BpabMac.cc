@@ -5,12 +5,15 @@
 
 Define_Module(BpabMac);
 
+// ĐÃ SỬA: Thêm hàm writeToUnifiedLog vào ngay dưới trace()
 #define WEBLOG(msgArgs) \
     do { \
         std::ostringstream _ss; \
         _ss << msgArgs; \
         trace() << _ss.str(); \
-        /* GỌI SANG BIẾN STATIC CỦA TRACIMANAGER */ \
+        /* --- GHI VÀO FILE LOG CHUNG --- */ \
+        BpabTraCIManager::writeToUnifiedLog(simTime().dbl(), self, "MAC_EVENT", _ss.str()); \
+        /* --- GỌI SANG BIẾN STATIC CỦA TRACIMANAGER (CŨ) --- */ \
         if (BpabTraCIManager::tcpClientSocket != -1) { \
             std::ostringstream _netSs; \
             _netSs << simTime().dbl() << " MAC " << _ss.str() << "\n"; \
@@ -56,6 +59,10 @@ void BpabMac::startup() {
     isTransmitting = false;
 
     packetToBroadcast = NULL;
+
+    myX = mobilityModule->getLocation().x;
+    myY = mobilityModule->getLocation().y;
+    WEBLOG("EVENT:POS | Node:" << self << " | x:" << myX << " | y:" << myY);
 }
 
 BpabMac::~BpabMac() {
@@ -65,7 +72,7 @@ BpabMac::~BpabMac() {
 // --- 1. XU LY GOI TIN TU TANG MANG (Network Layer) ---
 void BpabMac::fromNetworkLayer(cPacket *msg, int destination) {
     if (bpabMacState != BPAB_IDLE) {
-        WEBLOG("EVENT:REJECT | Node:" << self << " | Reason:MAC_BUSY"); // Thay cho "MAC dang ban"
+        WEBLOG("EVENT:REJECT | Node:" << self << " | Reason:MAC_BUSY");
         delete msg;
         return;
     }
@@ -88,12 +95,12 @@ void BpabMac::fromRadioLayer(cPacket *msg, double rssi, double lqi) {
 
             if (!isValidForwardNode(myX, myY, srcX, srcY,
                                     pkt->getDirection(), rangeR)) {
-                WEBLOG("EVENT:FILTER | Node:" << self << " | Status:WRONG_DIRECTION"); // Thay cho "Sai huong"
+                WEBLOG("EVENT:FILTER | Node:" << self << " | Status:WRONG_DIRECTION");
                 return;
             }
 
             if (bpabMacState == BPAB_CONTENDING) {
-                WEBLOG("EVENT:FILTER | Node:" << self << " | Status:ALREADY_CONTENDING"); // Thay cho "Dang contending"
+                WEBLOG("EVENT:FILTER | Node:" << self << " | Status:ALREADY_CONTENDING");
                 return;
             }
 
@@ -128,7 +135,7 @@ void BpabMac::fromRadioLayer(cPacket *msg, double rssi, double lqi) {
             WEBLOG("EVENT:RCV_CTB | From:" << winnerId << " | To:" << self);
 
             if (bpabMacState == BPAB_PRE_CTB) {
-                WEBLOG("EVENT:BACKDOWN | Node:" << self << " | Reason:HEARD_OTHER_CTB"); // Thay cho "nghe thay CTB -> rut lui"
+                WEBLOG("EVENT:BACKDOWN | Node:" << self << " | Reason:HEARD_OTHER_CTB");
                 heardCTB = true;
                 break;
             }
@@ -136,7 +143,7 @@ void BpabMac::fromRadioLayer(cPacket *msg, double rssi, double lqi) {
             else if (bpabMacState == BPAB_WAIT_CTB && packetToBroadcast) {
                 retryCount = 0;
                 cancelTimer(3);
-                cancelTimer(4); // hủy timer set RX nếu chưa fired
+                cancelTimer(4);
 
                 WEBLOG("EVENT:SEND_DATA | From:" << self << " | To:" << winnerId);
                 packetToBroadcast->setDestinationId(winnerId);
@@ -157,7 +164,7 @@ void BpabMac::fromRadioLayer(cPacket *msg, double rssi, double lqi) {
             if (pkt->getDestinationId() == self) {
                 retryCount = 0;
                 cancelTimer(5);
-                WEBLOG("EVENT:RCV_DATA | Status:SUCCESS | Node:" << self); // Thay cho "Nhan DATA thanh cong"
+                WEBLOG("EVENT:RCV_DATA | Status:SUCCESS | Node:" << self);
                 cPacket *netPkt = pkt->decapsulate();
 //                toNetworkLayer(netPkt);
                 startBpabTransmission(netPkt);
@@ -188,7 +195,7 @@ int BpabMac::handleRadioControlMessage(cMessage *msg) {
     if (radioMsg && radioMsg->getRadioControlMessageKind() == CARRIER_SENSE_INTERRUPT) {
         if (bpabMacState == BPAB_CONTENDING && !isTransmitting) {
             heardBB = true;
-            WEBLOG("EVENT:CS_DETECTED | Node:" << self << " | Type:BB"); // Thay cho "Carrier sense: Nghe duoc BB"
+            WEBLOG("EVENT:CS_DETECTED | Node:" << self << " | Type:BB");
         }
         return 1;
     }
@@ -198,7 +205,7 @@ int BpabMac::handleRadioControlMessage(cMessage *msg) {
 void BpabMac::timerFiredCallback(int timerIndex) {
     switch (timerIndex) {
         case 1: {
-            if (bpabMacState != BPAB_CONTENDING) break; // ← thêm guard
+            if (bpabMacState != BPAB_CONTENDING) break;
 
             if (currentIteration >= maxIterations) {
                 WEBLOG("EVENT:WINNER_FINAL | Node:" << self << " | Rounds:" << maxIterations);
@@ -234,19 +241,15 @@ void BpabMac::timerFiredCallback(int timerIndex) {
             toRadioLayer(createRadioCommand(SET_CS_INTERRUPT_OFF));
 
             if (!isTransmitting) {
-                // Mình ở nửa GẦN
                 if (heardBB) {
-                    // Nghe thấy BB -> Có đứa ở xa hơn mình -> Bỏ cuộc
                     WEBLOG("EVENT:DROP_OUT | Node:" << self << " | Reason:HEARD_BB");
                     endContention(false);
                     break;
                 } else {
-                    // Không nghe thấy BB -> Không có ai ở xa hơn -> Thu hẹp giới hạn TRÊN
                     limitU = mid;
                     WEBLOG("EVENT:ITERATION_KEEP | Node:" << self << " | Round:" << currentIteration << " | Action:SHRINK_UPPER");
                 }
             } else {
-                // Mình ở nửa XA (đã phát BB) -> Vẫn tiếp tục tranh chấp -> Thu hẹp giới hạn DƯỚI
                 limitL = mid;
                 WEBLOG("EVENT:ITERATION_KEEP | Node:" << self << " | Round:" << currentIteration << " | Action:SHRINK_LOWER");
             }
@@ -261,14 +264,14 @@ void BpabMac::timerFiredCallback(int timerIndex) {
 
             if (packetToBroadcast && retryCount < maxRetries) {
                 retryCount++;
-                WEBLOG("EVENT:RETRY | Node:" << self << " | Count:" << retryCount); // Thay cho "thu lai lan x/y"
+                WEBLOG("EVENT:RETRY | Node:" << self << " | Count:" << retryCount);
                 cPacket *netPkt = packetToBroadcast->decapsulate();
                 delete packetToBroadcast;
                 packetToBroadcast = NULL;
                 bpabMacState = BPAB_IDLE;
                 startBpabTransmission(netPkt);
             } else {
-                WEBLOG("EVENT:DROP_PKT | Node:" << self << " | Reason:MAX_RETRY_REACHED"); // Thay cho "huy goi tin"
+                WEBLOG("EVENT:DROP_PKT | Node:" << self << " | Reason:MAX_RETRY_REACHED");
                 if (packetToBroadcast) {
                     delete packetToBroadcast;
                     packetToBroadcast = NULL;
@@ -304,7 +307,7 @@ void BpabMac::timerFiredCallback(int timerIndex) {
                 WEBLOG("EVENT:STATE | Node:" << self << " | State:IDLE | Reason:LOST_BACKOFF");
                 heardCTB     = false;
                 bpabMacState = BPAB_IDLE;
-                break; // ← break, không gửi CTB
+                break;
             }
 
             WEBLOG("EVENT:SEND | Type:CTB | From:" << self << " | To:BROADCAST");
@@ -321,7 +324,7 @@ void BpabMac::timerFiredCallback(int timerIndex) {
             WEBLOG("EVENT:STATE | Node:" << self << " | State:WAIT_DATA");
             setTimer(5, slotDuration * 4);
             setTimer(7, 0.0001);
-            break; // ← QUAN TRỌNG: phải có break
+            break;
         }
 
         case 7: {
@@ -346,21 +349,18 @@ bool BpabMac::isValidForwardNode(double myX, double myY,
 
     double absDx = fabs(dx);
     double absDy = fabs(dy);
-    double halfWidth = widthW / 2.0; // Nửa chiều rộng đường
+    double halfWidth = widthW / 2.0;
     WEBLOG("EVENT:DEBUG_FILTER | Node:" << self << " | dx:" << dx << " | dy:" << dy
                 << " | Dir:" << direction);
     switch (direction) {
         case EAST:
-            // Tiến về +X: dx phải > 0, không vượt quá chiều dài rangeR,
-            // và độ lệch trục Y không vượt quá nửa chiều rộng.
             if (dx > minProgress && dx <= rangeR && absDy <= halfWidth) {
-                myDistanceToSrc = dx; // Tranh chấp dựa trên tiến độ trục X
+                myDistanceToSrc = dx;
                 return true;
             }
             break;
 
         case WEST:
-            // Tiến về -X: dx phải < 0
             if (dx < -minProgress && absDx <= rangeR && absDy <= halfWidth) {
                 myDistanceToSrc = absDx;
                 return true;
@@ -368,15 +368,13 @@ bool BpabMac::isValidForwardNode(double myX, double myY,
             break;
 
         case NORTH:
-            // Tiến về +Y: dy phải > 0, độ lệch trục X không vượt quá nửa chiều rộng
             if (dy > minProgress && dy <= rangeR && absDx <= halfWidth) {
-                myDistanceToSrc = dy; // Tranh chấp dựa trên tiến độ trục Y
+                myDistanceToSrc = dy;
                 return true;
             }
             break;
 
         case SOUTH:
-            // Tiến về -Y: dy phải < 0
             if (dy < -minProgress && absDy <= rangeR && absDx <= halfWidth) {
                 myDistanceToSrc = absDy;
                 return true;
@@ -387,7 +385,7 @@ bool BpabMac::isValidForwardNode(double myX, double myY,
             return false;
     }
 
-    return false; // Nằm ngoài hình chữ nhật
+    return false;
 }
 
 void BpabMac::startBpabTransmission(cPacket *netPkt) {
@@ -403,7 +401,7 @@ void BpabMac::startBpabTransmission(cPacket *netPkt) {
     rtbPkt->setRtbSentTime(simTime().dbl());
     rtbPkt->setSourceX(mobilityModule->getLocation().x);
     rtbPkt->setSourceY(mobilityModule->getLocation().y);
-    rtbPkt->setDirection(EAST);
+    rtbPkt->setDirection(WEST);
     rtbPkt->setLimitL(0);
     rtbPkt->setLimitU(rangeR);
     rtbPkt->setByteLength(10);
@@ -421,7 +419,7 @@ void BpabMac::startBpabTransmission(cPacket *netPkt) {
 void BpabMac::sendBlackBurst() {
     BPABPacket *bb = new BPABPacket("BLACK_BURST", MAC_LAYER_PACKET);
     bb->setBpabType(BPAB_BLACK_BURST);
-    bb->setByteLength(1); // ✅ nhỏ nhất có thể = ít TX time nhất
+    bb->setByteLength(1);
     toRadioLayer(bb);
     toRadioLayer(createRadioCommand(SET_STATE, TX));
 }
@@ -435,11 +433,10 @@ void BpabMac::endContention(bool won) {
         toRadioLayer(createRadioCommand(SET_STATE, RX));
         toRadioLayer(createRadioCommand(SET_CS_INTERRUPT_ON));
 
-        // Random backoff trong khoảng [0, slotDuration]
         double backoff = uniform(0, 3 * slotDuration);
         WEBLOG("EVENT:WINNER | Node:" << self << " | Backoff:" << backoff);
 
-        bpabMacState = BPAB_PRE_CTB; // state mới: chờ trước khi gửi CTB
+        bpabMacState = BPAB_PRE_CTB;
         WEBLOG("EVENT:STATE | Node:" << self << " | State:PRE_CTB");
         setTimer(6, backoff);
     } else{

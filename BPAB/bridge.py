@@ -18,24 +18,24 @@ OFFSET = 0.0
 def main():
     # 1. KẾT NỐI VỚI CASTALIA (Cổng 9999)
     try:
-        print(f"⏳ Đang tìm kiếm Castalia tại {CASTALIA_IP}:{CASTALIA_PORT}...")
+        # print(f"⏳ Đang tìm kiếm Castalia tại {CASTALIA_IP}:{CASTALIA_PORT}...")
         castalia_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         castalia_sock.connect((CASTALIA_IP, CASTALIA_PORT))
-        print("🟢 Đã cắm dây mạng thành công vào Castalia!")
+        # print("🟢 Đã cắm dây mạng thành công vào Castalia!")
     except ConnectionRefusedError:
-        print("🔴 LỖI: Không tìm thấy Castalia. Hãy gõ lệnh chạy Castalia C++ trước khi bật file Python này!")
+        # print("🔴 LỖI: Không tìm thấy Castalia. Hãy gõ lệnh chạy Castalia C++ trước khi bật file Python này!")
         sys.exit(1)
 
     # 2. KHỞI ĐỘNG SUMO
     # Dùng "sumo" thay vì "sumo-gui" để chạy ngầm hoàn toàn (Headless Mode)
     sumoCmd = ["sumo", "-c", SUMO_CONFIG_FILE, "--step-length", str(STEP_LENGTH)]
     
-    print("⏳ Đang khởi động lõi mô phỏng SUMO...")
+    # print("⏳ Đang khởi động lõi mô phỏng SUMO...")
     try:
         traci.start(sumoCmd)
-        print("🟢 SUMO đã chạy ngầm! Đang bắt đầu truyền tọa độ...\n")
+        # print("🟢 SUMO đã chạy ngầm! Đang bắt đầu truyền tọa độ...\n")
     except Exception as e:
-        print(f"🔴 LỖI khi bật SUMO: {e}")
+        # print(f"🔴 LỖI khi bật SUMO: {e}")
         castalia_sock.close()
         sys.exit(1)
 
@@ -57,21 +57,23 @@ def main():
                 x_castalia = x_sumo + OFFSET
                 y_castalia = y_sumo + OFFSET
                 
-                cmd = f"SET_POS|TIME:{current_sumo_time:.2f}|NODE:{node_id}|X:{x_castalia:.2f}|Y:{y_castalia:.2f}\n"
+                cmd = "SET_POS|TIME:{:.2f}|NODE:{}|X:{:.2f}|Y:{:.2f}\n".format(current_sumo_time, node_id, x_castalia, y_castalia)
                 castalia_sock.sendall(cmd.encode('utf-8'))
             
             time.sleep(STEP_LENGTH / PLAYBACK_SPEED)
 
     except KeyboardInterrupt:
-        print("\n🛑 Đã dừng đồng bộ (Ctrl+C).")
+        # print("\n🛑 Đã dừng đồng bộ (Ctrl+C).")
+        pass
     except Exception as e:
-        print(f"\n🔴 LỖI LÕI: {e}")
+        # print(f"\n🔴 LỖI LÕI: {e}")
+        pass
     finally:
         # 4. ĐÓNG KẾT NỐI AN TOÀN
-        print("🧹 Đang dọn dẹp hệ thống...")
+        # print("🧹 Đang dọn dẹp hệ thống...")
         traci.close()
         castalia_sock.close()
-        print("✅ Hoàn tất!")
+        # print("✅ Hoàn tất!")
 
 if __name__ == "__main__":
     main()

@@ -3,7 +3,7 @@
 
 <head>
   <meta charset="utf-8" />
-  <title>BPAB Protocol Visualizer (Offline Version)</title>
+  <title>BPAB Protocol Visualizer</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <script src="https://d3js.org/d3.v7.min.js"></script>
   <style>
@@ -41,11 +41,25 @@
       margin-right: 5px;
     }
 
-    .btn:hover { background: #2980b9; }
-    .btn.play { background: #2ecc71; }
-    .btn.play:hover { background: #27ae60; }
-    .btn.pause { background: #e74c3c; }
-    .btn.pause:hover { background: #c0392b; }
+    .btn:hover {
+      background: #2980b9;
+    }
+
+    .btn.play {
+      background: #2ecc71;
+    }
+
+    .btn.play:hover {
+      background: #27ae60;
+    }
+
+    .btn.pause {
+      background: #e74c3c;
+    }
+
+    .btn.pause:hover {
+      background: #c0392b;
+    }
 
     textarea {
       width: 100%;
@@ -114,7 +128,9 @@
 
     #frameBar {
       position: fixed;
-      bottom: 0; left: 0; right: 0;
+      bottom: 0;
+      left: 0;
+      right: 0;
       background: #fff;
       padding: 10px 20px;
       display: flex;
@@ -135,24 +151,27 @@
 
   <div id="controlsBox">
     <h2>⚙ BPAB Simulator Controls</h2>
-    <div style="display: flex; gap: 16px;">
-      <div style="flex: 2;">
+    <div style="display:flex;gap:16px;">
+      <div style="flex:2;">
         <label><b>Paste Castalia Log Here:</b></label>
         <textarea id="logArea" placeholder="Paste your Castalia-Trace.txt content here..."></textarea>
-        <div style="margin-top: 5px;">
-          <button id="btnParse" class="btn">Load & Parse Log</button>
+        <div style="margin-top:5px;">
+          <button id="btnParse" class="btn">Load &amp; Parse Log</button>
+          <span id="parseStatus" style="margin-left:10px;font-size:12px;color:#27ae60;"></span>
         </div>
       </div>
-      <div style="flex: 1; border-left: 2px solid #eee; padding-left: 20px;">
+      <div style="flex:1;border-left:2px solid #eee;padding-left:20px;">
         <label><b>Legend:</b></label><br>
         <div class="legend-item"><span class="color-box" style="background:#bdc3c7;"></span> IDLE</div>
         <div class="legend-item"><span class="color-box" style="background:#f1c40f;"></span> CONTENDING</div>
-        <div class="legend-item"><span class="color-box" style="background:#3498db;"></span> WAIT_CTB / WAIT_DATA</div>
+        <div class="legend-item"><span class="color-box" style="background:#3498db;"></span> WAIT_CTB/DATA</div>
         <div class="legend-item"><span class="color-box" style="background:#e67e22;"></span> PRE_CTB</div>
-        <div class="legend-item"><span class="color-box" style="background:#ffd700; border-radius:50%"></span> WINNER</div><br>
-        <div class="legend-item"><span style="color:#e74c3c; font-weight:bold;">O</span> Black-Burst (BB)</div>
-        <div class="legend-item"><span style="color:#e67e22; font-weight:bold;">→</span> RTB/CTB</div>
-        <div class="legend-item"><span style="color:#2ecc71; font-weight:bold;">→</span> DATA</div>
+        <div class="legend-item"><span class="color-box" style="background:#ffd700;border-radius:50%"></span> WINNER
+        </div><br>
+        <div class="legend-item"><span style="color:#000;font-weight:bold;">○</span> Black-Burst (BB)</div>
+        <div class="legend-item"><span style="color:#3498db;font-weight:bold;">→</span> RTB</div>
+        <div class="legend-item"><span style="color:#f1c40f;font-weight:bold;">→</span> CTB</div>
+        <div class="legend-item"><span style="color:#2ecc71;font-weight:bold;">→</span> DATA</div>
       </div>
     </div>
   </div>
@@ -173,6 +192,7 @@
         </defs>
         <g id="zoom-layer">
           <g id="grid-layer"></g>
+          <g id="map-layer"></g>
           <g id="effect-layer"></g>
           <g id="edge-layer"></g>
           <g id="node-layer"></g>
@@ -188,112 +208,133 @@
   <div id="frameBar">
     <button id="playPauseBtn" class="btn play">▶ Play</button>
     <label>Speed:</label>
-    <input type="range" id="speedInput" min="1" max="20" value="3">
-    <span id="speedLabel">3x</span>
-
-    <input id="frameSlider" type="range" min="0" max="0" value="0" step="0.01">
-    <div id="timeLabel" style="min-width: 80px; font-weight: bold; color: #2980b9;">0.00 s</div>
+    <input type="range" id="speedInput" min="0" max="12" value="3" step="1">
+    <span id="speedLabel">1x</span>
+    <input id="frameSlider" type="range" min="0" max="100" value="0" step="0.01">
+    <div id="timeLabel" style="min-width:80px;font-weight:bold;color:#2980b9;">0.0000 s</div>
   </div>
 
   <script>
-    // --- STATE ---
+    // ─── STATE ───────────────────────────────────────────────────────────────────
     let events = [];
-    let nodes = {}; // id -> {x, y}
+    let nodePositions = {};   // nodeId -> latest {x, y} at any time (used for initNodes)
     let tMin = 0, tMax = 0;
     let currentTime = 0;
     let playing = false;
     let animationRef = null;
+    let lastRafTime = null;   // wall-clock timestamp for smooth real-time stepping
 
-    const FADE_WINDOW = 0.5; // Sự kiện (mũi tên/sóng) hiển thị trong 0.5 giây mô phỏng
+    const FADE_WINDOW = 0.5;
+    const speedLevels = [0.25, 0.5, 0.75, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 
-    // --- D3 ELEMENTS ---
+    // ─── D3 SETUP ────────────────────────────────────────────────────────────────
     const svg = d3.select("#svg");
     const zoomLayer = d3.select("#zoom-layer");
     const nodeLayer = d3.select("#node-layer");
     const edgeLayer = d3.select("#edge-layer");
+    const mapLayer = d3.select("#map-layer");
     const effectLayer = d3.select("#effect-layer");
     const eventListDiv = document.getElementById("eventList");
 
-    // Setup Zoom/Pan
     const zoom = d3.zoom().scaleExtent([0.05, 20]).on("zoom", (e) => {
       const k = e.transform.k;
       const invK = 1 / k;
-
       zoomLayer.attr("transform", e.transform);
       drawDynamicGrid(e.transform);
-
-      nodeLayer.selectAll(".node-bg")
-        .attr("r", 15 * invK)
-        .attr("stroke-width", 2 * invK);
-
-      nodeLayer.selectAll("text")
-        .attr("font-size", 12 * invK)
-        .attr("y", 4 * invK);
-
+      nodeLayer.selectAll(".node-bg").attr("r", 15 * invK).attr("stroke-width", 2 * invK);
+      nodeLayer.selectAll("text").attr("font-size", 12 * invK).attr("y", 4 * invK);
       edgeLayer.selectAll("line").attr("stroke-width", 2 * invK);
       effectLayer.selectAll("circle").attr("stroke-width", 1.5 * invK);
     });
     svg.call(zoom);
 
-    // --- PARSER ---
+    // ─── PARSER ──────────────────────────────────────────────────────────────────
+    // --- PARSER & AUTO LOAD MAP ---
     document.getElementById("btnParse").addEventListener("click", () => {
-      const text = document.getElementById("logArea").value;
+
+      // 1. TỰ ĐỘNG TẢI BẢN ĐỒ TỪ ĐƯỜNG DẪN CỐ ĐỊNH
+      // ĐẢM BẢO FILE "map.net.xml" NẰM CÙNG THƯ MỤC VỚI FILE HTML NÀY
+      const mapUrl = "map.net.xml";
+
+      fetch(mapUrl)
+        .then(response => {
+          if (!response.ok) {
+            throw new Error("Không tìm thấy file " + mapUrl);
+          }
+          return response.text();
+        })
+        .then(xmlText => {
+          drawSumoMap(xmlText); // Hàm vẽ map đã được định nghĩa bên dưới
+        })
+        .catch(error => {
+          console.error("Lỗi tải bản đồ:", error);
+        });
+
+      // 2. PARSE FILE LOG CASTALIA (Giữ nguyên logic cũ của bạn)
+      const text = document.getElementById("logArea").value.trim();
       if (!text) { alert("Please paste log data!"); return; }
 
       events = [];
-      nodes = {};
-      const lines = text.split('\n');
+      nodePositions = {};
 
-      // Định dạng Cũ (Castalia default) hoặc Mới đều parse được
-      const logRegex = /^([\d.]+)\s+.*?EVENT:([^|]+)\|(.*)$/;
+      const lines = text.split(/\r?\n/);
+      lines.forEach(rawLine => {
+        const line = rawLine.trim();
+        if (!line || line.startsWith("Time")) return;
 
-      lines.forEach(line => {
-        line = line.trim();
-        if (!line.includes("EVENT:")) return;
+        const parts = line.split('\t');
+        if (parts.length < 4) return;
 
-        // Chuẩn hóa Log nếu cần
-        let parseable = line;
-        if (/^[\d.]+\s+MAC\s+EVENT:/.test(line)) {
-            parseable = line.replace(/^([\d.]+)\s+MAC\s+(EVENT:.*)$/, "$1    SN.node.Communication.MAC    $2");
+        const timeVal = parseFloat(parts[0]);
+        if (isNaN(timeVal)) return;
+
+        const detailsRaw = parts[3];
+        if (!detailsRaw || !detailsRaw.includes("EVENT:")) return;
+
+        const chunks = detailsRaw.split(/\s*\|\s*/);
+        const eventName = chunks[0].replace("EVENT:", "").trim();
+
+        let evObj = { time: timeVal, event: eventName };
+
+        for (let i = 1; i < chunks.length; i++) {
+          const idx = chunks[i].indexOf(":");
+          if (idx === -1) continue;
+          const k = chunks[i].slice(0, idx).trim().toLowerCase();
+          const v = chunks[i].slice(idx + 1).trim();
+          evObj[k] = isNaN(v) ? v : parseFloat(v);
         }
 
-        const match = parseable.match(logRegex);
-        if (match) {
-          const time = parseFloat(match[1]);
-          const eventName = match[2].trim();
-          const detailsRaw = match[3].trim();
+        events.push(evObj);
 
-          let evObj = { time: time, event: eventName };
-
-          detailsRaw.split("|").forEach(item => {
-            if (item.includes(":")) {
-              let [k, v] = item.split(":");
-              k = k.trim().toLowerCase(); v = v.trim();
-              evObj[k] = isNaN(v) ? v : parseFloat(v);
-            }
-          });
-          events.push(evObj);
-
-          if (eventName === "POS" && evObj.node !== undefined) {
-            nodes[evObj.node] = { x: evObj.x, y: -(evObj.y || 0) };
-          }
+        if (eventName === "POS" && evObj.node !== undefined) {
+          nodePositions[evObj.node] = { x: evObj.x, y: -(evObj.y || 0) };
         }
       });
 
-      if (events.length === 0) { alert("No valid events found!"); return; }
+      if (events.length === 0) {
+        alert("No valid events found!"); return;
+      }
 
       events.sort((a, b) => a.time - b.time);
+
       tMin = events[0].time;
       tMax = events[events.length - 1].time;
       currentTime = tMin;
 
       const slider = document.getElementById("frameSlider");
-      slider.min = tMin; slider.max = tMax; slider.value = tMin;
+      slider.min = tMin;
+      slider.max = tMax;
+      slider.value = tMin;
+      slider.step = (tMax - tMin) / 5000;
+
+      document.getElementById("parseStatus").textContent =
+        `✔ Loaded ${events.length} events  (${tMin.toFixed(2)}s – ${tMax.toFixed(2)}s)`;
 
       initNodes();
       updateFrame(currentTime);
     });
 
+    // ─── GRID ────────────────────────────────────────────────────────────────────
     function drawDynamicGrid(transform) {
       const svgEl = document.getElementById("svg");
       const width = svgEl.clientWidth || 1000;
@@ -313,36 +354,30 @@
 
       const gridLayer = d3.select("#grid-layer");
       gridLayer.selectAll("*").remove();
+      const invK = 1 / transform.k;
 
       const startX = Math.floor(xMin / step) * step;
       const endX = Math.ceil(xMax / step) * step;
       const startY = Math.floor(yMin / step) * step;
       const endY = Math.ceil(yMax / step) * step;
 
-      const invK = 1 / transform.k;
-
       for (let x = startX; x <= endX; x += step) {
         gridLayer.append("line")
-          .attr("x1", x).attr("y1", startY)
-          .attr("x2", x).attr("y2", endY)
+          .attr("x1", x).attr("y1", startY).attr("x2", x).attr("y2", endY)
           .attr("stroke", x === 0 ? "#95a5a6" : "#ecf0f1")
           .attr("stroke-width", x === 0 ? 2 * invK : 1 * invK)
           .attr("stroke-dasharray", x === 0 ? "" : `${5 * invK},${5 * invK}`);
-
         gridLayer.append("text")
-          .attr("x", x).attr("y", yMin + 15 * invK)
-          .text(x)
+          .attr("x", x).attr("y", yMin + 15 * invK).text(x)
           .attr("fill", "#bdc3c7").attr("font-size", 12 * invK).attr("text-anchor", "middle");
       }
 
       for (let y = startY; y <= endY; y += step) {
         gridLayer.append("line")
-          .attr("x1", startX).attr("y1", y)
-          .attr("x2", endX).attr("y2", y)
+          .attr("x1", startX).attr("y1", y).attr("x2", endX).attr("y2", y)
           .attr("stroke", y === 0 ? "#95a5a6" : "#ecf0f1")
           .attr("stroke-width", y === 0 ? 2 * invK : 1 * invK)
           .attr("stroke-dasharray", y === 0 ? "" : `${5 * invK},${5 * invK}`);
-
         gridLayer.append("text")
           .attr("x", xMin + 5 * invK).attr("y", y - 5 * invK)
           .text(-y === 0 ? 0 : -y)
@@ -350,14 +385,14 @@
       }
     }
 
-    // --- RENDERING ---
+    // ─── INIT NODES ──────────────────────────────────────────────────────────────
     function initNodes() {
       nodeLayer.selectAll("*").remove();
 
       const nodeGroups = nodeLayer.selectAll("g")
-        .data(Object.entries(nodes))
+        .data(Object.entries(nodePositions))
         .enter().append("g")
-        .attr("transform", d => `translate(${d[1].x}, ${d[1].y})`);
+        .attr("transform", d => `translate(${d[1].x},${d[1].y})`);
 
       nodeGroups.append("circle")
         .attr("class", "node-bg")
@@ -374,32 +409,48 @@
         .attr("fill", "white")
         .attr("font-weight", "bold");
 
-      svg.transition().duration(750).call(zoom.transform, d3.zoomIdentity.translate(200, 200).scale(1.2));
+      svg.transition().duration(750).call(
+        zoom.transform, d3.zoomIdentity.translate(200, 200).scale(1.2)
+      );
     }
 
-    // ĐÃ SỬA: Hàm lấy màu hỗ trợ cả winner
+    // ─── STATE COLOR ─────────────────────────────────────────────────────────────
     function getStateColor(state, isWinner) {
-      if (isWinner) return "#ffd700"; // Vàng rực cho Winner
-      if (state === "CONTENDING") return "#f1c40f"; // Vàng nhạt
-      if (state && state.includes("WAIT")) return "#3498db"; // Xanh dương
-      if (state === "PRE_CTB") return "#e67e22"; // Cam đậm
-      return "#bdc3c7"; // Xám IDLE
+      if (isWinner) return "#ffd700";
+      if (state === "CONTENDING") return "#f1c40f";
+      if (state && state.includes("WAIT")) return "#3498db";
+      if (state === "PRE_CTB") return "#e67e22";
+      return "#bdc3c7";
     }
 
+    // ─── UPDATE FRAME ────────────────────────────────────────────────────────────
     function updateFrame(t) {
+      // Clamp
+      t = Math.max(tMin, Math.min(tMax, t));
+      currentTime = t;
+
       document.getElementById("timeLabel").innerText = t.toFixed(4) + " s";
       document.getElementById("frameSlider").value = t;
 
-      const currentTransform = d3.zoomTransform(svg.node());
-      const invK = 1 / currentTransform.k;
+      const tf = d3.zoomTransform(svg.node());
+      const invK = 1 / tf.k;
 
-      // Lưu trữ trạng thái mới nhất tính đến thời điểm t
+      // ── Accumulate state up to t ──────────────────────────────────────────────
       let latestStates = {};
       let latestWinners = {};
-      let nodeToSrc = {}; 
+      let latestPos = {};   // nodeId -> {x, y} — most recent POS at/before t
+      let nodeToSrc = {};
       let activeContentions = {};
 
-      events.filter(e => e.time <= t).forEach(e => {
+      events.forEach(e => {
+        if (e.time > t) return;
+
+        // Positions
+        if (e.event === "POS" && e.node !== undefined) {
+          latestPos[e.node] = { x: e.x, y: -(e.y || 0) };
+        }
+
+        // States
         if (e.event === "STATE" && e.node !== undefined) {
           latestStates[e.node] = e.state;
           if (e.state === "IDLE" || e.state === "WAIT_CTB") {
@@ -410,18 +461,17 @@
         if (e.event === "WINNER" && e.node !== undefined) {
           latestWinners[e.node] = true;
         }
-
         if (e.event === "RCV_DATA" && e.status === "SUCCESS" && e.node !== undefined) {
           latestWinners[e.node] = false;
         }
 
-        // Theo dõi vùng phân chia BPAB
+        // BPAB contention tracking
         if (e.event === "JOIN_BPAB" && e.node !== undefined && e.src !== undefined) {
           nodeToSrc[e.node] = e.src;
           if (!activeContentions[e.src]) activeContentions[e.src] = {};
-          activeContentions[e.src].direction = e.dir || e.Dir || "EAST";
-          activeContentions[e.src].maxR = parseFloat(e.maxr || e.MaxR || 300);
-          activeContentions[e.src].widthW = parseFloat(e.width || e.Width || 50);
+          activeContentions[e.src].direction = (e.dir || "EAST").toUpperCase();
+          activeContentions[e.src].maxR = parseFloat(e.maxr || 300);
+          activeContentions[e.src].widthW = parseFloat(e.width || 50);
         }
 
         if (e.event === "CONTENSION_ROUND" && e.node !== undefined && e.range !== undefined) {
@@ -441,152 +491,144 @@
         }
       });
 
-      // ĐÃ SỬA: Lấy đúng state từ latestStates thay vì từ node.state mặc định
+      // ── Move nodes to their latest position ───────────────────────────────────
       nodeLayer.selectAll("g").each(function (d) {
         const nid = parseInt(d[0]);
+        const pos = latestPos[nid] || nodePositions[nid];
+        if (pos) {
+          d3.select(this).attr("transform", `translate(${pos.x},${pos.y})`);
+        }
         const st = latestStates[nid] || "IDLE";
         const isWin = latestWinners[nid] || false;
-
         d3.select(this).select("circle")
           .attr("fill", getStateColor(st, isWin))
           .attr("stroke-width", 2 * invK);
       });
 
-      // Lấy các sự kiện trong cửa sổ vẽ đồ họa
+      // ── Active events window ─────────────────────────────────────────────────
       const activeEvents = events.filter(e => e.time <= t && e.time > t - FADE_WINDOW);
 
-      eventListDiv.innerHTML = activeEvents.slice(-20).map(e =>
-        `<div class="event-line highlight">[${e.time.toFixed(4)}] Node ${e.node !== undefined ? e.node : (e.from !== undefined ? e.from : '-')}: ${e.event} ${e.type ? `(${e.type})` : ''} ${e.status ? e.status : ''}</div>`
-      ).reverse().join('');
+      // Event log panel
+      eventListDiv.innerHTML = activeEvents.slice(-20).reverse().map(e =>
+        `<div class="event-line highlight">[${e.time.toFixed(4)}] N${e.node !== undefined ? e.node : (e.from !== undefined ? e.from : '-')}: ${e.event}${e.type ? ' (' + e.type + ')' : ''}${e.status ? ' ' + e.status : ''}</div>`
+      ).join('');
 
       effectLayer.selectAll("*").remove();
       edgeLayer.selectAll("*").remove();
 
-      // Vẽ vùng phân chia BPAB
+      // ── BPAB contention rectangles ───────────────────────────────────────────
       Object.keys(activeContentions).forEach(srcId => {
         const cont = activeContentions[srcId];
-        if(!cont.time) return;
+        if (!cont.time) return;
         const age = t - cont.time;
+        if (age < 0 || age >= 0.8) return;
 
-        if (age >= 0 && age < 0.8) {
-          const srcNode = nodes[srcId];
-          if (!srcNode) return;
+        const srcNode = latestPos[srcId] || nodePositions[srcId];
+        if (!srcNode) return;
 
-          const alpha = Math.max(0, 1 - (age / 0.8));
-          const L = cont.l;
-          const U = cont.u;
-          const direction = (cont.direction || "EAST").toUpperCase();
-          const MaxR = cont.maxR || 300;
-          const W = cont.widthW || 50;   
-          const Mid = (L + U) / 2;
+        const alpha = Math.max(0, 1 - age / 0.8);
+        const L = cont.l, U = cont.u;
+        const direction = cont.direction || "EAST";
+        const MaxR = cont.maxR || 300;
+        const W = cont.widthW || 50;
+        const Mid = (L + U) / 2;
 
-          let baseRect = {}, elimLower = {}, elimUpper = {}, activeRect = {};
-          let midLine = { x1: 0, y1: 0, x2: 0, y2: 0 };
-          let textPos = { x: srcNode.x, y: srcNode.y };
+        let baseRect = {}, elimLower = {}, elimUpper = {}, activeRect = {}, midLine = {}, textPos = {};
 
-          switch (direction) {
-            case 'EAST':
-              baseRect = { x: srcNode.x, y: srcNode.y - W / 2, w: MaxR, h: W };
-              elimLower = { x: srcNode.x, y: srcNode.y - W / 2, w: L, h: W };
-              elimUpper = { x: srcNode.x + U, y: srcNode.y - W / 2, w: Math.max(0, MaxR - U), h: W };
-              activeRect = { x: srcNode.x + L, y: srcNode.y - W / 2, w: U - L, h: W };
-              midLine = { x1: srcNode.x + Mid, y1: srcNode.y - W / 2, x2: srcNode.x + Mid, y2: srcNode.y + W / 2 };
-              textPos = { x: srcNode.x + MaxR + 25 * invK, y: srcNode.y };
-              break;
-            case 'WEST':
-              baseRect = { x: srcNode.x - MaxR, y: srcNode.y - W / 2, w: MaxR, h: W };
-              elimLower = { x: srcNode.x - L, y: srcNode.y - W / 2, w: L, h: W };
-              elimUpper = { x: srcNode.x - MaxR, y: srcNode.y - W / 2, w: Math.max(0, MaxR - U), h: W };
-              activeRect = { x: srcNode.x - U, y: srcNode.y - W / 2, w: U - L, h: W };
-              midLine = { x1: srcNode.x - Mid, y1: srcNode.y - W / 2, x2: srcNode.x - Mid, y2: srcNode.y + W / 2 };
-              textPos = { x: srcNode.x - MaxR - 25 * invK, y: srcNode.y };
-              break;
-            case 'NORTH': 
-              baseRect = { x: srcNode.x - W / 2, y: srcNode.y - MaxR, w: W, h: MaxR };
-              elimLower = { x: srcNode.x - W / 2, y: srcNode.y - L, w: W, h: L };
-              elimUpper = { x: srcNode.x - W / 2, y: srcNode.y - MaxR, w: W, h: Math.max(0, MaxR - U) };
-              activeRect = { x: srcNode.x - W / 2, y: srcNode.y - U, w: W, h: U - L };
-              midLine = { x1: srcNode.x - W / 2, y1: srcNode.y - Mid, x2: srcNode.x + W / 2, y2: srcNode.y - Mid };
-              textPos = { x: srcNode.x, y: srcNode.y - MaxR - 15 * invK };
-              break;
-            case 'SOUTH': 
-              baseRect = { x: srcNode.x - W / 2, y: srcNode.y, w: W, h: MaxR };
-              elimLower = { x: srcNode.x - W / 2, y: srcNode.y, w: W, h: L };
-              elimUpper = { x: srcNode.x - W / 2, y: srcNode.y + U, w: W, h: Math.max(0, MaxR - U) };
-              activeRect = { x: srcNode.x - W / 2, y: srcNode.y + L, w: W, h: U - L };
-              midLine = { x1: srcNode.x - W / 2, y1: srcNode.y + Mid, x2: srcNode.x + W / 2, y2: srcNode.y + Mid };
-              textPos = { x: srcNode.x, y: srcNode.y + MaxR + 15 * invK };
-              break;
-          }
-
-          effectLayer.append("rect")
-            .attr("x", baseRect.x).attr("y", baseRect.y).attr("width", baseRect.w).attr("height", baseRect.h)
-            .attr("fill", "none").attr("stroke", "#34495e").attr("stroke-width", 1.5 * invK)
-            .attr("stroke-dasharray", `${4 * invK},${4 * invK}`).attr("opacity", alpha);
-
-          if (activeRect.w > 0 && activeRect.h > 0) {
-            effectLayer.append("rect")
-              .attr("x", activeRect.x).attr("y", activeRect.y).attr("width", activeRect.w).attr("height", activeRect.h)
-              .attr("fill", "rgba(46, 204, 113, 0.2)").attr("opacity", alpha);
-          }
-
-          const drawGrayArea = (rect) => {
-            if (rect.w > 0 && rect.h > 0) {
-              effectLayer.append("rect")
-                .attr("x", rect.x).attr("y", rect.y).attr("width", rect.w).attr("height", rect.h)
-                .attr("fill", "rgba(189, 195, 199, 0.65)").attr("opacity", alpha);
-            }
-          };
-          drawGrayArea(elimLower);
-          drawGrayArea(elimUpper);
-
-          effectLayer.append("line")
-            .attr("x1", midLine.x1).attr("y1", midLine.y1).attr("x2", midLine.x2).attr("y2", midLine.y2)
-            .attr("stroke", "#e74c3c").attr("stroke-width", 2.5 * invK).attr("opacity", alpha);
-
-          effectLayer.append("text")
-            .attr("x", textPos.x).attr("y", textPos.y)
-            .text(`${direction} R${cont.round}: [${L.toFixed(0)} - ${U.toFixed(0)}]`)
-            .attr("fill", "#27ae60").attr("font-size", 12 * invK).attr("font-weight", "bold")
-            .attr("text-anchor", "middle").attr("opacity", alpha);
+        switch (direction) {
+          case 'EAST':
+            baseRect = { x: srcNode.x, y: srcNode.y - W / 2, w: MaxR, h: W };
+            elimLower = { x: srcNode.x, y: srcNode.y - W / 2, w: L, h: W };
+            elimUpper = { x: srcNode.x + U, y: srcNode.y - W / 2, w: Math.max(0, MaxR - U), h: W };
+            activeRect = { x: srcNode.x + L, y: srcNode.y - W / 2, w: U - L, h: W };
+            midLine = { x1: srcNode.x + Mid, y1: srcNode.y - W / 2, x2: srcNode.x + Mid, y2: srcNode.y + W / 2 };
+            textPos = { x: srcNode.x + MaxR + 25 * invK, y: srcNode.y };
+            break;
+          case 'WEST':
+            baseRect = { x: srcNode.x - MaxR, y: srcNode.y - W / 2, w: MaxR, h: W };
+            elimLower = { x: srcNode.x - L, y: srcNode.y - W / 2, w: L, h: W };
+            elimUpper = { x: srcNode.x - MaxR, y: srcNode.y - W / 2, w: Math.max(0, MaxR - U), h: W };
+            activeRect = { x: srcNode.x - U, y: srcNode.y - W / 2, w: U - L, h: W };
+            midLine = { x1: srcNode.x - Mid, y1: srcNode.y - W / 2, x2: srcNode.x - Mid, y2: srcNode.y + W / 2 };
+            textPos = { x: srcNode.x - MaxR - 25 * invK, y: srcNode.y };
+            break;
+          case 'NORTH':
+            baseRect = { x: srcNode.x - W / 2, y: srcNode.y - MaxR, w: W, h: MaxR };
+            elimLower = { x: srcNode.x - W / 2, y: srcNode.y - L, w: W, h: L };
+            elimUpper = { x: srcNode.x - W / 2, y: srcNode.y - MaxR, w: W, h: Math.max(0, MaxR - U) };
+            activeRect = { x: srcNode.x - W / 2, y: srcNode.y - U, w: W, h: U - L };
+            midLine = { x1: srcNode.x - W / 2, y1: srcNode.y - Mid, x2: srcNode.x + W / 2, y2: srcNode.y - Mid };
+            textPos = { x: srcNode.x, y: srcNode.y - MaxR - 15 * invK };
+            break;
+          case 'SOUTH':
+            baseRect = { x: srcNode.x - W / 2, y: srcNode.y, w: W, h: MaxR };
+            elimLower = { x: srcNode.x - W / 2, y: srcNode.y, w: W, h: L };
+            elimUpper = { x: srcNode.x - W / 2, y: srcNode.y + U, w: W, h: Math.max(0, MaxR - U) };
+            activeRect = { x: srcNode.x - W / 2, y: srcNode.y + L, w: W, h: U - L };
+            midLine = { x1: srcNode.x - W / 2, y1: srcNode.y + Mid, x2: srcNode.x + W / 2, y2: srcNode.y + Mid };
+            textPos = { x: srcNode.x, y: srcNode.y + MaxR + 15 * invK };
+            break;
         }
+
+        effectLayer.append("rect")
+          .attr("x", baseRect.x).attr("y", baseRect.y).attr("width", baseRect.w).attr("height", baseRect.h)
+          .attr("fill", "none").attr("stroke", "#34495e").attr("stroke-width", 1.5 * invK)
+          .attr("stroke-dasharray", `${4 * invK},${4 * invK}`).attr("opacity", alpha);
+
+        if (activeRect.w > 0 && activeRect.h > 0)
+          effectLayer.append("rect")
+            .attr("x", activeRect.x).attr("y", activeRect.y).attr("width", activeRect.w).attr("height", activeRect.h)
+            .attr("fill", "rgba(46,204,113,0.2)").attr("opacity", alpha);
+
+        const drawGray = r => {
+          if (r.w > 0 && r.h > 0)
+            effectLayer.append("rect")
+              .attr("x", r.x).attr("y", r.y).attr("width", r.w).attr("height", r.h)
+              .attr("fill", "rgba(189,195,199,0.65)").attr("opacity", alpha);
+        };
+        drawGray(elimLower);
+        drawGray(elimUpper);
+
+        effectLayer.append("line")
+          .attr("x1", midLine.x1).attr("y1", midLine.y1).attr("x2", midLine.x2).attr("y2", midLine.y2)
+          .attr("stroke", "#e74c3c").attr("stroke-width", 2.5 * invK).attr("opacity", alpha);
+
+        effectLayer.append("text")
+          .attr("x", textPos.x).attr("y", textPos.y)
+          .text(`${direction} R${cont.round}: [${L.toFixed(0)}-${U.toFixed(0)}]`)
+          .attr("fill", "#27ae60").attr("font-size", 12 * invK).attr("font-weight", "bold")
+          .attr("text-anchor", "middle").attr("opacity", alpha);
       });
 
-      // Vẽ sóng radar và gói tin
+      // ── Waves and arrows ─────────────────────────────────────────────────────
       activeEvents.forEach(e => {
         const age = t - e.time;
-        const alpha = 1 - (age / FADE_WINDOW);
+        const alpha = Math.max(0, 1 - age / FADE_WINDOW);
 
-        if (e.event.includes("SEND_BB")) {
-          const src = nodes[e.node];
+        // Black-Burst
+        if (e.event === "SEND_BB") {
+          const src = latestPos[e.node] || nodePositions[e.node];
           if (!src) return;
-
           [1, 2, 3].forEach(i => {
             effectLayer.append("circle")
               .attr("cx", src.x).attr("cy", src.y)
-              .attr("r", 20 * i + (age * 200))
+              .attr("r", 20 * i + age * 200)
               .attr("fill", "none").attr("stroke", "black").attr("stroke-width", 2)
               .attr("opacity", alpha * (0.6 - i * 0.1));
           });
         }
 
+        // SEND / SEND_DATA
         if (e.event === "SEND" || e.event === "SEND_DATA") {
           const srcId = e.from !== undefined ? e.from : e.node;
-          const src = nodes[srcId];
+          const src = latestPos[srcId] || nodePositions[srcId];
           if (!src) return;
 
           const pType = (e.type || "DATA").toUpperCase();
-          let color = "#3498db"; 
+          let color = "#3498db";
           let marker = "url(#arrow-blue)";
-
-          if (pType.includes("CTB")) {
-            color = "#f1c40f"; 
-            marker = "url(#arrow-yellow)";
-          }
-          if (pType.includes("DATA") || e.event === "SEND_DATA") {
-            color = "#2ecc71"; 
-            marker = "url(#arrow-green)";
-          }
+          if (pType.includes("CTB")) { color = "#f1c40f"; marker = "url(#arrow-yellow)"; }
+          if (pType.includes("DATA") || e.event === "SEND_DATA") { color = "#2ecc71"; marker = "url(#arrow-green)"; }
 
           const destStr = String(e.to || "").toUpperCase();
 
@@ -594,29 +636,28 @@
             [1, 2, 3].forEach(i => {
               effectLayer.append("circle")
                 .attr("cx", src.x).attr("cy", src.y)
-                .attr("r", 40 * i + (age * 300))
+                .attr("r", 40 * i + age * 300)
                 .attr("fill", "none").attr("stroke", color)
                 .attr("stroke-width", pType.includes("CTB") ? 3 : 1.5)
                 .attr("stroke-dasharray", pType.includes("CTB") ? "10,5" : "5,5")
                 .attr("opacity", alpha * (1 - i * 0.15));
             });
-
             effectLayer.append("text")
-              .attr("x", src.x).attr("y", (src.y - 25 - (age * 50)) * invK)
+              .attr("x", src.x).attr("y", src.y - (25 + age * 50) * invK)
               .text(pType + " (Bcast)")
               .attr("fill", color).attr("font-size", 12 * invK).attr("font-weight", "bold")
               .attr("text-anchor", "middle").attr("opacity", alpha);
 
           } else if (destStr !== "") {
             const destId = parseInt(destStr);
-            const dest = nodes[destId];
+            const dest = latestPos[destId] || nodePositions[destId];
             if (!dest) return;
 
-            const dx = dest.x - src.x; const dy = dest.y - src.y;
+            const dx = dest.x - src.x, dy = dest.y - src.y;
             const dist = Math.sqrt(dx * dx + dy * dy);
-            if (dist === 0) return; 
+            if (dist === 0) return;
 
-            const shorten = 18 * invK; 
+            const shorten = 18 * invK;
             const tx = dest.x - (dx / dist) * shorten;
             const ty = dest.y - (dy / dist) * shorten;
 
@@ -626,7 +667,7 @@
               .attr("opacity", alpha).attr("marker-end", marker);
 
             edgeLayer.append("text")
-              .attr("x", (src.x + tx) / 2).attr("y", ((src.y + ty) / 2 - 8) * invK)
+              .attr("x", (src.x + tx) / 2).attr("y", (src.y + ty) / 2 - 8 * invK)
               .text(pType)
               .attr("fill", color).attr("font-size", 11 * invK).attr("font-weight", "bold")
               .attr("text-anchor", "middle").attr("opacity", alpha);
@@ -635,7 +676,7 @@
       });
     }
 
-    // --- PLAYBACK CONTROLS ---
+    // ─── PLAYBACK ────────────────────────────────────────────────────────────────
     const playPauseBtn = document.getElementById("playPauseBtn");
 
     function updatePlayPauseUI() {
@@ -650,48 +691,181 @@
 
     function playSim() {
       if (events.length === 0) return;
-      if (currentTime >= tMax) currentTime = tMin; 
+      if (currentTime >= tMax) currentTime = tMin;
       playing = true;
+      lastRafTime = null;
       updatePlayPauseUI();
-      loop();
+      animationRef = requestAnimationFrame(loop);
     }
 
     function pauseSim() {
       playing = false;
-      if (animationRef) cancelAnimationFrame(animationRef);
+      if (animationRef) { cancelAnimationFrame(animationRef); animationRef = null; }
       updatePlayPauseUI();
     }
 
-    function loop() {
+    function loop(wallTime) {
       if (!playing) return;
-      const speed = parseFloat(document.getElementById("speedInput").value);
-      currentTime += 0.001 * speed;
+
+      const speed = speedLevels[parseFloat(document.getElementById("speedInput").value)];
+
+      if (lastRafTime !== null) {
+        // wallTime is in ms; convert to simulated seconds
+        const wallDelta = (wallTime - lastRafTime) / 1000;   // real seconds elapsed
+        currentTime += wallDelta * speed;
+      }
+      lastRafTime = wallTime;
 
       if (currentTime >= tMax) {
         currentTime = tMax;
         updateFrame(currentTime);
         pauseSim();
-      } else {
-        updateFrame(currentTime);
-        animationRef = requestAnimationFrame(loop);
+        return;
       }
+
+      updateFrame(currentTime);
+      animationRef = requestAnimationFrame(loop);
     }
 
     playPauseBtn.addEventListener("click", () => {
-      if (playing) pauseSim();
-      else playSim();
+      if (playing) pauseSim(); else playSim();
     });
 
-    document.getElementById("frameSlider").addEventListener("input", (e) => {
+    document.getElementById("frameSlider").addEventListener("input", e => {
       pauseSim();
       currentTime = parseFloat(e.target.value);
-      updateFrame(currentTime);
+      if (events.length > 0) updateFrame(currentTime);
     });
 
     document.getElementById("speedInput").addEventListener("input", (e) => {
-      document.getElementById("speedLabel").innerText = e.target.value + "x";
+      let index = parseInt(e.target.value); // Lấy số thứ tự (0-12) từ thanh trượt
+      playSpeed = speedLevels[index];       // Ánh xạ sang mảng tốc độ
+      document.getElementById("speedLabel").innerText = playSpeed + "x"; // Cập nhật chữ hiển thị
     });
 
+    // ============================================================================
+    // --- HÀM VẼ BẢN ĐỒ TỪ FILE XML ---
+    // ============================================================================
+    function drawSumoMap(xmlText) {
+      const parser = new DOMParser();
+      const xmlDoc = parser.parseFromString(xmlText, "text/xml");
+
+      mapLayer.selectAll("*").remove();
+
+      // --- VẼ MẶT ĐƯỜNG VÀ VẠCH PHÂN CÁCH ---
+      const edges = xmlDoc.getElementsByTagName("edge");
+
+      // BƯỚC 1: Vẽ toàn bộ mặt đường (màu xám đậm) trước để làm nền
+      for (let i = 0; i < edges.length; i++) {
+        const lanes = edges[i].getElementsByTagName("lane");
+        for (let j = 0; j < lanes.length; j++) {
+          const lane = lanes[j];
+          const shapeStr = lane.getAttribute("shape");
+          if (!shapeStr) continue;
+
+          const widthStr = lane.getAttribute("width");
+          const laneWidth = widthStr ? parseFloat(widthStr) : 3.2;
+
+          const points = shapeStr.split(" ").map(pt => {
+            let coords = pt.split(",");
+            return [parseFloat(coords[0]), -parseFloat(coords[1])]; // Lật trục Y
+          });
+
+          mapLayer.append("polyline")
+            .attr("points", points.map(p => p.join(",")).join(" "))
+            .attr("fill", "none")
+            .attr("stroke", "#333") // Màu xám đường nhựa
+            .attr("stroke-width", laneWidth);
+        }
+      }
+
+      // BƯỚC 2: Vẽ vạch kẻ đường (Phân làn đứt trắng, Phân chiều liền vàng)
+      for (let i = 0; i < edges.length; i++) {
+        const edge = edges[i];
+        // Bỏ qua vạch kẻ cho các đoạn giao cắt trong ngã tư (internal) để tránh rối mắt
+        if (edge.getAttribute("function") === "internal") continue;
+
+        const lanes = edge.getElementsByTagName("lane");
+
+        // Tìm lane có index lớn nhất (Đó chính là làn ngoài cùng bên trái, nằm sát tim đường)
+        let maxIndex = -1;
+        for (let j = 0; j < lanes.length; j++) {
+          let idx = parseInt(lanes[j].getAttribute("index"));
+          if (idx > maxIndex) maxIndex = idx;
+        }
+
+        for (let j = 0; j < lanes.length; j++) {
+          const lane = lanes[j];
+          const shapeStr = lane.getAttribute("shape");
+          if (!shapeStr) continue;
+
+          let idx = parseInt(lane.getAttribute("index"));
+          const widthStr = lane.getAttribute("width");
+          const laneWidth = widthStr ? parseFloat(widthStr) : 3.2;
+
+          const points = shapeStr.split(" ").map(pt => {
+            let coords = pt.split(",");
+            return [parseFloat(coords[0]), -parseFloat(coords[1])];
+          });
+
+          // Khoảng cách từ tâm làn ra mép đường (để vẽ vạch)
+          const offset = laneWidth / 2;
+
+          for (let k = 0; k < points.length - 1; k++) {
+            let p1 = points[k];
+            let p2 = points[k + 1];
+
+            let dx = p2[0] - p1[0];
+            let dy = p2[1] - p1[1];
+            let len = Math.sqrt(dx * dx + dy * dy);
+            if (len === 0) continue;
+
+            // Tính toán Vector pháp tuyến hướng sang TRÁI của hướng xe chạy
+            let nx = dy / len;
+            let ny = -dx / len;
+
+            // Dịch chuyển đường vẽ ra sát mép trái của làn
+            let x1 = p1[0] + nx * offset;
+            let y1 = p1[1] + ny * offset;
+            let x2 = p2[0] + nx * offset;
+            let y2 = p2[1] + ny * offset;
+
+            // Nếu là làn sát tim đường -> Nét vàng nét liền. Nếu là các làn khác -> Nét trắng đứt.
+            let isCenterLine = (idx === maxIndex);
+
+            mapLayer.append("line")
+              .attr("x1", x1)
+              .attr("y1", y1)
+              .attr("x2", x2)
+              .attr("y2", y2)
+              .attr("stroke", isCenterLine ? "#f1c40f" : "#ffffff") // Vàng hoặc Trắng
+              .attr("stroke-width", isCenterLine ? 0.5 : 0.5)           // Nét vàng vẽ đậm hơn (3)
+              .attr("stroke-dasharray", isCenterLine ? "none" : "7,7"); // Vạch trắng dài 10, cách 10
+          }
+        }
+      }
+
+      // --- VẼ NGÃ TƯ ---
+      const junctions = xmlDoc.getElementsByTagName("junction");
+      for (let i = 0; i < junctions.length; i++) {
+        const junction = junctions[i];
+        if (junction.getAttribute("type") === "internal" || junction.getAttribute("type") === "dead_end") continue;
+
+        const shapeStr = junction.getAttribute("shape");
+        if (!shapeStr) continue;
+
+        const points = shapeStr.split(" ").map(pt => {
+          let coords = pt.split(",");
+          return [parseFloat(coords[0]), -parseFloat(coords[1])]; // Lật trục Y
+        });
+
+        mapLayer.append("polygon")
+          .attr("points", points.map(p => p.join(",")).join(" "))
+          .attr("fill", "rgba(52, 152, 219, 0.15)") // Nền ngã tư màu xanh nhạt
+          .attr("stroke", "#3498db")
+          .attr("stroke-width", 1);
+      }
+    }
   </script>
 </body>
 
