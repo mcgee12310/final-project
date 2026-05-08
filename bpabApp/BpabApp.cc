@@ -1,38 +1,62 @@
 #include "BpabApp.h"
+#include <cstdio>   // Để dùng sprintf
+#include <sstream>  // Để dùng std::ostringstream
+#include "BpabTraCIManager.h" // Nhúng thư viện ghi log chung
 
 Define_Module(BpabApp);
 
+// =====================================================================
+// MACRO GHI LOG CHO TẦNG APP (Tương tự WEBLOG của MAC)
+// =====================================================================
+#define APP_LOG(msgArgs) \
+    do { \
+        std::ostringstream _ss; \
+        _ss << msgArgs; \
+        trace() << _ss.str(); \
+        /* --- GHI VÀO FILE LOG CHUNG --- */ \
+        BpabTraCIManager::writeToUnifiedLog(simTime().dbl(), self, "APP_EVENT", _ss.str()); \
+        /* --- GỬI QUA SOCKET CHO VISUALIZER --- */ \
+        if (BpabTraCIManager::tcpClientSocket != -1) { \
+            std::ostringstream _netSs; \
+            _netSs << simTime().dbl() << " APP " << _ss.str() << "\n"; \
+            std::string _msg = _netSs.str(); \
+            ::send(BpabTraCIManager::tcpClientSocket, _msg.c_str(), _msg.length(), 0); \
+        } \
+    } while(0)
+// =====================================================================
+
+
 void BpabApp::startup() {
-    // 1. Đọc tham số từ file .ini và file .ned
     sendInterval = par("sendInterval");
     isNode0Sender = par("isNode0Sender");
     packetSequenceNumber = 0;
 
-    // 2. Kịch bản: Nếu là Node 0 và được phép gửi, lên lịch gửi gói tin đầu tiên
     if (isNode0Sender && self == 0) {
-        // Sử dụng Timer số 1 của Castalia (thừa kế từ TimerService)
         setTimer(1, sendInterval);
-        trace() << "[APP] Node 0 đã sẵn sàng gửi gói tin định kỳ!";
+        APP_LOG("EVENT:APP_START | Node:0 | Status:SENDER_READY");
     } else {
-//        trace() << "[APP] Node " << self << " khởi động ở chế độ Lắng nghe.";
+        // APP_LOG("EVENT:APP_START | Node:" << self << " | Status:LISTENER");
     }
 }
 
 void BpabApp::timerFiredCallback(int timerIndex) {
     switch (timerIndex) {
         case 1: {
-            // 1. Tạo một gói tin dữ liệu chung (Data: 0.0, Seq: packetSequenceNumber, Size: 64 bytes)
-            ApplicationPacket *newPacket = createGenericDataPacket(0.0, packetSequenceNumber, 64);
-            newPacket->setName("BPAB_DATA_PACKET");
+            double sensorData = 36.5 + packetSequenceNumber * 0.1;
+            ApplicationPacket *newPacket = createGenericDataPacket(sensorData, packetSequenceNumber, 64);
 
-            // 2. Đẩy xuống tầng Network (sau đó Network sẽ đẩy xuống MAC của bạn)
-            // BROADCAST_NETWORK_ADDRESS là hằng số chuỗi "-1" mặc định của Castalia
+            char payload[100];
+            sprintf(payload, "Hello VANET! Nhiet do: %.1f", sensorData);
+            newPacket->setName(payload);
+
             toNetworkLayer(newPacket, BROADCAST_NETWORK_ADDRESS);
 
-            trace() << "[APP] Node " << self << " ĐÃ GỬI gói tin Seq: " << packetSequenceNumber;
-            packetSequenceNumber++;
+            // THAY THẾ TRACE CŨ BẰNG APP_LOG
+            APP_LOG("EVENT:APP_SEND | Node:" << self
+                    << " | Seq:" << packetSequenceNumber
+                    << " | Payload:[" << payload << "]");
 
-            // 3. Lên lịch vòng lặp gửi gói tin tiếp theo
+            packetSequenceNumber++;
             setTimer(1, sendInterval);
             break;
         }
@@ -42,8 +66,10 @@ void BpabApp::timerFiredCallback(int timerIndex) {
 }
 
 void BpabApp::fromNetworkLayer(ApplicationPacket *rcvPacket, const char *source, double rssi, double lqi) {
-    // Hàm này được gọi khi Tầng MAC nhận thành công và bóc tách đẩy ngược lên đây
-    trace() << "[APP] Node " << self << " ĐÃ NHẬN gói tin từ Node " << source
-            << " | Seq: " << rcvPacket->getSequenceNumber()
-            << " | Tín hiệu (RSSI): " << rssi << " dBm";
+    // THAY THẾ TRACE CŨ BẰNG APP_LOG
+    APP_LOG("EVENT:APP_RCV | Node:" << self
+            << " | From:" << source
+            << " | Seq:" << rcvPacket->getSequenceNumber()
+            << " | Payload:[" << rcvPacket->getName() << "]"
+            << " | RSSI:" << rssi << "dBm");
 }

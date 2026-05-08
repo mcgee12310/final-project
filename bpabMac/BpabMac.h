@@ -1,7 +1,7 @@
 #ifdef _WIN32
     #include <winsock2.h>
     #include <ws2tcpip.h>
-    // Định nghĩa kiểu socklen_t cho Windows
+    // Ä�á»‹nh nghÄ©a kiá»ƒu socklen_t cho Windows
     typedef int socklen_t;
 #else
     #include <sys/socket.h>
@@ -27,7 +27,8 @@ enum BpabMacState {
     BPAB_WAITING_BB = 4,    // Dang nghe Xung den (Black Burst) tu cac xe khac
     BPAB_WAIT_CTB = 5,
     BPAB_WAIT_DATA = 6,
-    BPAB_PRE_CTB = 7
+    BPAB_PRE_CTB = 7,
+    BPAB_WAIT_ACK = 8
 };
 
 class BpabMac: public VirtualMac {
@@ -45,7 +46,11 @@ class BpabMac: public VirtualMac {
     int myId;
     double myX;
     double myY;
+    double lastX;
+    double lastY;
     double myDistanceToSrc;
+
+    int transmissionDirection;
     BpabMacState bpabMacState; // Trang thai hien tai cua MAC
     int currentIteration;      // Vong lap hien tai (i)
     double limitL;             // Ranh gioi duoi (Lower bound)
@@ -74,6 +79,7 @@ class BpabMac: public VirtualMac {
     void startBpabTransmission(cPacket *netPkt);
     void sendBlackBurst();      // Ham phat xung den vat ly
     void endContention(bool won); // Ket thuc tranh chap (Thang/Thua)
+    int calculateTransmissionDirection();
 
  protected:
     // --- Cac ham bat buoc cua Castalia VirtualMac ---
