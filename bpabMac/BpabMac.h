@@ -76,7 +76,10 @@ class BpabMac: public VirtualMac {
                                      double srcX, double srcY,
                                      int direction,
                                      double rangeR);
-    void startBpabTransmission(cPacket *netPkt);
+    void preparePacket(cPacket *netPkt);
+    void sendRTB();
+    void sendCTB();
+    void sendData(int winnerId);
     void sendBlackBurst();      // Ham phat xung den vat ly
     void endContention(bool won); // Ket thuc tranh chap (Thang/Thua)
     int calculateTransmissionDirection();

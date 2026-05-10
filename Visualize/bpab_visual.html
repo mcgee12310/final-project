@@ -165,6 +165,7 @@
         <div class="legend-item"><span class="color-box" style="background:#bdc3c7;"></span> IDLE</div>
         <div class="legend-item"><span class="color-box" style="background:#f1c40f;"></span> CONTENDING</div>
         <div class="legend-item"><span class="color-box" style="background:#3498db;"></span> WAIT_CTB/DATA</div>
+        <div class="legend-item"><span class="color-box" style="background:#9b59b6;"></span> WAIT_ACK</div>
         <div class="legend-item"><span class="color-box" style="background:#e67e22;"></span> PRE_CTB</div>
         <div class="legend-item"><span class="color-box" style="background:#ffd700;border-radius:50%"></span> WINNER
         </div><br>
@@ -418,6 +419,7 @@
     function getStateColor(state, isWinner) {
       if (isWinner) return "#ffd700";
       if (state === "CONTENDING") return "#f1c40f";
+      if (state === "WAIT_ACK") return "#9b59b6";
       if (state && state.includes("WAIT")) return "#3498db";
       if (state === "PRE_CTB") return "#e67e22";
       return "#bdc3c7";

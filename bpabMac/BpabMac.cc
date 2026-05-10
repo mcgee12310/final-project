@@ -5,15 +5,14 @@
 
 Define_Module(BpabMac);
 
-// Ä�Ãƒ Sá»¬A: ThÃªm hÃ m writeToUnifiedLog vÃ o ngay dÆ°á»›i trace()
 #define WEBLOG(msgArgs) \
     do { \
         std::ostringstream _ss; \
         _ss << msgArgs; \
         trace() << _ss.str(); \
-        /* --- GHI VÃ€O FILE LOG CHUNG --- */ \
+        /* --- GHI VÀO FILE LOG CHUNG --- */ \
         BpabTraCIManager::writeToUnifiedLog(simTime().dbl(), self, "MAC_EVENT", _ss.str()); \
-        /* --- Gá»ŒI SANG BIáº¾N STATIC Cá»¦A TRACIMANAGER (CÅ¨) --- */ \
+        /* --- GỬI SANG BIẾN STATIC CỦA TRACIMANAGER (CŨ) --- */ \
         if (BpabTraCIManager::tcpClientSocket != -1) { \
             std::ostringstream _netSs; \
             _netSs << simTime().dbl() << " MAC " << _ss.str() << "\n"; \
@@ -39,7 +38,7 @@ void BpabMac::startup() {
     if (hasPar("widthW")) {
         widthW = par("widthW");
     } else {
-        widthW = 50.0; // Máº·c Ä‘á»‹nh hÃ¬nh chá»¯ nháº­t rá»™ng 50m
+        widthW = 50.0;
     }
     if (hasPar("minProgress")) {
         minProgress = par("minProgress");
@@ -81,7 +80,8 @@ void BpabMac::fromNetworkLayer(cPacket *msg, int destination) {
         delete msg;
         return;
     }
-    startBpabTransmission(msg);
+    preparePacket(msg);
+    sendRTB();
 }
 
 // --- 2. XU LY GOI TIN NHAN DUOC TU RADIO ---
@@ -94,17 +94,16 @@ void BpabMac::fromRadioLayer(cPacket *msg, double rssi, double lqi) {
             WEBLOG("EVENT:RCV | Type:RTB | From:" << pkt->getSourceId() << " | To:" << self);
 
             if (bpabMacState == BPAB_WAIT_ACK) {
-                cancelTimer(8); // Tắt còi báo động timeout
-                bpabMacState = BPAB_IDLE; // Trở về trạng thái nghỉ
+                cancelTimer(8);
+                bpabMacState = BPAB_IDLE;
 
-                // Đã thành công nên có thể vứt bỏ gói tin gốc đi
                 if (packetToBroadcast) {
                     delete packetToBroadcast;
                     packetToBroadcast = NULL;
                 }
                 WEBLOG("EVENT:ACK_RECEIVED | Node:" << self << " | Status:SUCCESS");
                 WEBLOG("EVENT:STATE | Node:" << self << " | State:IDLE");
-                return; // Kết thúc luôn, không tham gia tranh chấp nữa
+                return;
             }
 
             myX = mobilityModule->getLocation().x;
@@ -161,19 +160,7 @@ void BpabMac::fromRadioLayer(cPacket *msg, double rssi, double lqi) {
                 retryCount = 0;
                 cancelTimer(3);
                 cancelTimer(4);
-
-                WEBLOG("EVENT:SEND_DATA | From:" << self << " | To:" << winnerId);
-                packetToBroadcast->setDestinationId(winnerId);
-                packetToBroadcast->setBpabType(BPAB_DATA);
-
-                // QUAN TRỌNG: Gửi bản sao (dup) đi để giữ lại bản gốc phòng trường hợp cần Retry
-                toRadioLayer(packetToBroadcast->dup());
-                toRadioLayer(createRadioCommand(SET_STATE, TX));
-
-                // Chuyển sang trạng thái chờ ACK và bật Timer 8
-                bpabMacState = BPAB_WAIT_ACK;
-                WEBLOG("EVENT:STATE | Node:" << self << " | State:WAIT_ACK");
-                setTimer(8, 0.05);
+                sendData(winnerId);
             } else {
                 WEBLOG("EVENT:RCV_CTB | Status:IGNORED | Node:" << self);
             }
@@ -189,7 +176,8 @@ void BpabMac::fromRadioLayer(cPacket *msg, double rssi, double lqi) {
                 retryCount = 0;
                 cancelTimer(5);
                 WEBLOG("EVENT:RCV_DATA | Status:SUCCESS_RELAY | Node:" << self);
-                startBpabTransmission(netPkt);
+                preparePacket(netPkt);
+                sendRTB();
             } else {
                 delete netPkt;
                 WEBLOG("EVENT:RCV_DATA | Status:PASSIVE_RECEIVE | Node:" << self);
@@ -198,7 +186,6 @@ void BpabMac::fromRadioLayer(cPacket *msg, double rssi, double lqi) {
         }
 
         case BPAB_BLACK_BURST: {
-            // fallback: náº¿u packet khÃ´ng bá»‹ collision thÃ¬ detect luÃ´n
             if (bpabMacState == BPAB_CONTENDING && !isTransmitting) {
                 heardBB = true;
                 WEBLOG("EVENT:CS_DETECTED | Node:" << self << " | Type:BB_PACKET");
@@ -291,7 +278,8 @@ void BpabMac::timerFiredCallback(int timerIndex) {
                 delete packetToBroadcast;
                 packetToBroadcast = NULL;
                 bpabMacState = BPAB_IDLE;
-                startBpabTransmission(netPkt);
+                preparePacket(netPkt);
+                sendRTB();
             } else {
                 WEBLOG("EVENT:DROP_PKT | Node:" << self << " | Reason:MAX_RETRY_REACHED");
                 if (packetToBroadcast) {
@@ -333,19 +321,7 @@ void BpabMac::timerFiredCallback(int timerIndex) {
             }
 
             WEBLOG("EVENT:SEND | Type:CTB | From:" << self << " | To:BROADCAST");
-
-            BPABPacket *ctb = new BPABPacket("BPAB_CTB", MAC_LAYER_PACKET);
-            ctb->setBpabType(BPAB_CTB);
-            ctb->setSourceId(self);
-            ctb->setByteLength(1);
-
-            toRadioLayer(ctb);
-            toRadioLayer(createRadioCommand(SET_STATE, TX));
-
-            bpabMacState = BPAB_WAIT_DATA;
-            WEBLOG("EVENT:STATE | Node:" << self << " | State:WAIT_DATA");
-            setTimer(5, slotDuration * 4);
-            setTimer(7, 0.0001);
+            sendCTB();
             break;
         }
 
@@ -361,20 +337,14 @@ void BpabMac::timerFiredCallback(int timerIndex) {
                 WEBLOG("EVENT:ACK_TIMEOUT | Node:" << self << " | Action:RESTART_CONTENTION");
                 bpabMacState = BPAB_IDLE;
 
-                // Không quan tâm số lần retry trước đó, luôn phát lại như 1 gói tin hoàn toàn mới
                 if (packetToBroadcast) {
                     WEBLOG("EVENT:RESTART | Node:" << self << " | Reason:NO_ACK_RECEIVED");
-
-                    // Xóa bộ đếm retry cũ để vòng tranh chấp mới có đủ cơ hội (cho WAIT_CTB)
                     retryCount = 0;
-
-                    // Bóc lớp vỏ MAC cũ ra để lấy lại gói tin Network gốc
                     cPacket *netPkt = packetToBroadcast->decapsulate();
                     delete packetToBroadcast;
                     packetToBroadcast = NULL;
-
-                    // Bắt đầu lại toàn bộ quá trình truyền (phát RTB) từ đầu
-                    startBpabTransmission(netPkt);
+                    preparePacket(netPkt);
+                    sendRTB();
                 }
             }
             break;
@@ -440,13 +410,17 @@ bool BpabMac::isValidForwardNode(double myX, double myY,
     return false;
 }
 
-void BpabMac::startBpabTransmission(cPacket *netPkt) {
+// --- Đóng gói netPkt vào packetToBroadcast ---
+void BpabMac::preparePacket(cPacket *netPkt) {
     BPABPacket *pkt = new BPABPacket("BPAB_DATA", MAC_LAYER_PACKET);
     pkt->setByteLength(netPkt->getByteLength());
     pkt->setPayload("BPAB_PAYLOAD");
     pkt->encapsulate(netPkt);
     packetToBroadcast = pkt;
+}
 
+// --- Phát RTB ---
+void BpabMac::sendRTB() {
     BPABPacket *rtbPkt = new BPABPacket("BPAB_RTB", MAC_LAYER_PACKET);
     rtbPkt->setBpabType(BPAB_RTB);
     rtbPkt->setSourceId(self);
@@ -468,6 +442,21 @@ void BpabMac::startBpabTransmission(cPacket *netPkt) {
     setTimer(3, slotDuration * (2 * (maxIterations + 5)));
 }
 
+// --- Gửi gói DATA tới node thắng contention ---
+void BpabMac::sendData(int winnerId) {
+    WEBLOG("EVENT:SEND_DATA | From:" << self << " | To:" << winnerId);
+    packetToBroadcast->setDestinationId(winnerId);
+    packetToBroadcast->setBpabType(BPAB_DATA);
+
+    // Gửi bản sao (dup) để giữ lại bản gốc phòng trường hợp cần Retry
+    toRadioLayer(packetToBroadcast->dup());
+    toRadioLayer(createRadioCommand(SET_STATE, TX));
+
+    bpabMacState = BPAB_WAIT_ACK;
+    WEBLOG("EVENT:STATE | Node:" << self << " | State:WAIT_ACK");
+    setTimer(8, 0.05);
+}
+
 void BpabMac::sendBlackBurst() {
     BPABPacket *bb = new BPABPacket("BLACK_BURST", MAC_LAYER_PACKET);
     bb->setBpabType(BPAB_BLACK_BURST);
@@ -476,6 +465,23 @@ void BpabMac::sendBlackBurst() {
     toRadioLayer(createRadioCommand(SET_STATE, TX));
 }
 
+// --- Đóng gói và phát gói CTB ra radio ---
+void BpabMac::sendCTB() {
+    BPABPacket *ctb = new BPABPacket("BPAB_CTB", MAC_LAYER_PACKET);
+    ctb->setBpabType(BPAB_CTB);
+    ctb->setSourceId(self);
+    ctb->setByteLength(1);
+
+    toRadioLayer(ctb);
+    toRadioLayer(createRadioCommand(SET_STATE, TX));
+
+    bpabMacState = BPAB_WAIT_DATA;
+    WEBLOG("EVENT:STATE | Node:" << self << " | State:WAIT_DATA");
+    setTimer(5, slotDuration * 4);
+    setTimer(7, 0.0001);
+}
+
+// --- Kết thúc contention: nếu thắng thì chuẩn bị phát CTB, thua thì về IDLE ---
 void BpabMac::endContention(bool won) {
     cancelTimer(1);
     cancelTimer(2);
@@ -491,7 +497,7 @@ void BpabMac::endContention(bool won) {
         bpabMacState = BPAB_PRE_CTB;
         WEBLOG("EVENT:STATE | Node:" << self << " | State:PRE_CTB");
         setTimer(6, backoff);
-    } else{
+    } else {
         if (packetToBroadcast) {
             delete packetToBroadcast;
             packetToBroadcast = NULL;
@@ -506,26 +512,20 @@ void BpabMac::endContention(bool won) {
 }
 
 int BpabMac::calculateTransmissionDirection() {
-    // Lấy tọa độ mới nhất
     myX = mobilityModule->getLocation().x;
     myY = mobilityModule->getLocation().y;
 
     double dx = myX - lastX;
     double dy = myY - lastY;
 
-    // Chỉ cập nhật hướng nếu xe có di chuyển thực sự (tránh nhiễu khi xe đứng yên)
     if (fabs(dx) > 0.01 || fabs(dy) > 0.01) {
-        // So sánh xem xe di chuyển theo trục X nhiều hơn hay trục Y nhiều hơn
         if (fabs(dx) > fabs(dy)) {
-            // ĐÃ SỬA: Đang đi về hường Đông (dx > 0) thì truyền về Tây, và ngược lại
             transmissionDirection = (dx > 0) ? WEST : EAST;
         } else {
-            // ĐÃ SỬA: Đang đi về hướng Bắc (dy > 0) thì truyền về Nam, và ngược lại
             transmissionDirection = (dy > 0) ? SOUTH : NORTH;
         }
     }
 
-    // Lưu lại tọa độ hiện tại thành tọa độ cũ cho lần tính toán tiếp theo
     lastX = myX;
     lastY = myY;
 
