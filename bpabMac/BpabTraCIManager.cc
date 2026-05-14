@@ -7,10 +7,14 @@ Define_Module(BpabTraCIManager);
 // Khởi tạo biến static
 int BpabTraCIManager::tcpClientSocket = -1;
 std::ofstream BpabTraCIManager::unifiedLog;
+BpabTraCIManager* BpabTraCIManager::instance = nullptr; // Con trỏ static lưu instance duy nhất
 
 BpabTraCIManager::~BpabTraCIManager() {
     cancelAndDelete(pollTimer);
     if (unifiedLog.is_open()) unifiedLog.close();
+
+    if (instance == this) instance = nullptr;
+
     if (tcpClientSocket != -1) {
         #ifdef _WIN32
             closesocket(tcpClientSocket);
@@ -29,6 +33,8 @@ BpabTraCIManager::~BpabTraCIManager() {
 }
 
 void BpabTraCIManager::initialize() {
+    instance = this; // Lưu vết instance đang chạy
+
     if (!unifiedLog.is_open()) {
         unifiedLog.open("unified_trace.txt", std::ios::out);
     }
@@ -52,6 +58,14 @@ void BpabTraCIManager::initialize() {
     scheduleAt(simTime() + pollInterval, pollTimer);
 }
 
+// HÀM STATIC: ĐƯỢC GỌI TỪ TẦNG MAC/APP ĐỂ ÉP VÉT SẠCH BUFFER TCP TỨC THỜI
+void BpabTraCIManager::forceInstantTraCISync() {
+    if (instance && tcpClientSocket != -1) {
+        // Đọc ngay lập tức các lệnh vị trí mới nhất từ đệm OS gửi sang
+        instance->pollTcpSocket();
+    }
+}
+
 void BpabTraCIManager::writeToUnifiedLog(double time, int nodeId, std::string event, std::string data) {
     if (unifiedLog.is_open()) {
         unifiedLog << time << "\t" << nodeId << "\t" << event << "\t" << data << "\n";
@@ -60,8 +74,7 @@ void BpabTraCIManager::writeToUnifiedLog(double time, int nodeId, std::string ev
 }
 
 void BpabTraCIManager::handleMessage(cMessage *msg) {
-
-    // NẾU LÀ SỰ KIỆN DI CHUYỂN (Đến đúng thời gian SUMO yêu cầu)
+    // NẾU LÀ SỰ KIỆN DI CHUYỂN (Dành cho các mốc thời gian của tương lai)
     if (msg->isName("MoveEvent")) {
         // Mở hộp lấy dữ liệu
         int nodeId = msg->par("nodeId").longValue();
@@ -88,18 +101,13 @@ void BpabTraCIManager::handleMessage(cMessage *msg) {
             }
 
             // Gửi lên Web UI (Bây giờ Web sẽ nhận được tọa độ KHỚP TUYỆT ĐỐI với thời gian truyền tin)
-//            if (tcpClientSocket != -1) {
-//                std::ostringstream _netSs;
-//                _netSs << simTime().dbl() << " MAC EVENT:POS | Node:" << nodeId << " | x:" << x << " | y:" << y << "\n";
-//                std::string _msg = _netSs.str();
-//                ::send(tcpClientSocket, _msg.c_str(), _msg.length(), 0);
-//            }
+            // if (tcpClientSocket != -1) { ... }
         }
 
         // Xóa hộp đi để không bị tràn RAM!
         delete msg;
     }
-    // NẾU LÀ SỰ KIỆN ĐỌC TCP (Cứ 0.01s đọc 1 lần)
+    // NẾU LÀ SỰ KIỆN ĐỌC TCP định kỳ
     else if (msg == pollTimer) {
         pollTcpSocket();
         scheduleAt(simTime() + pollInterval, pollTimer);
@@ -188,26 +196,34 @@ void BpabTraCIManager::processCommand(const std::string& cmd) {
                 double x = std::stod(cmd.substr(xPos + 2, yPos - (xPos + 2) - 1));
                 double y = std::stod(cmd.substr(yPos + 2));
 
-                // ---- THAY ĐỔI TẠI ĐÂY ----
-                // Tạo một gói tin sự kiện chứa tọa độ
-                cMessage *moveMsg = new cMessage("MoveEvent");
-                moveMsg->addPar("nodeId").setLongValue(nodeId);
-                moveMsg->addPar("sumoTime").setDoubleValue(sumoTime);
-                moveMsg->addPar("x").setDoubleValue(x);
-                moveMsg->addPar("y").setDoubleValue(y);
+                // ---- CẢI TIẾN LẬP LỊCH TỐI ƯU ----
+                // Nếu mốc tọa độ này thuộc về hiện tại hoặc quá khứ, ÁP DỤNG TRỰC TIẾP NGAY!
+                if (sumoTime <= simTime().dbl()) {
+                    char path[100];
+                    sprintf(path, "SN.node[%d].MobilityManager", nodeId);
+                    cModule *mobModule = simulation.getModuleByPath(path);
 
-                // Tính toán thời gian thực thi
-                simtime_t targetTime = sumoTime;
+                    if (mobModule) {
+                        VirtualMobilityManager *mob = check_and_cast<VirtualMobilityManager*>(mobModule);
+                        mob->setLocation(x, y, 0); // Ghi đè trực tiếp tọa độ thực tế
 
-                // Nếu SUMO bị trễ hơn Castalia, ta ép nó thực thi ngay hiện tại
-                // để tránh lỗi "Cannot schedule message in the past" của OMNeT++
-                if (targetTime < simTime()) {
-                    targetTime = simTime();
+                        if (unifiedLog.is_open()) {
+                            std::ostringstream _ss;
+                            _ss << "EVENT:POS | Node:" << nodeId << " | x:" << x << " | y:" << y;
+                            writeToUnifiedLog(sumoTime, nodeId, "MAC_EVENT", _ss.str());
+                        }
+                    }
+                } else {
+                    // Nếu dữ liệu gửi sang dành cho mốc thời gian tương lai, đưa vào Event Heap
+                    cMessage *moveMsg = new cMessage("MoveEvent");
+                    moveMsg->addPar("nodeId").setLongValue(nodeId);
+                    moveMsg->addPar("sumoTime").setDoubleValue(sumoTime);
+                    moveMsg->addPar("x").setDoubleValue(x);
+                    moveMsg->addPar("y").setDoubleValue(y);
+
+                    scheduleAt(sumoTime, moveMsg);
                 }
-
-                // Ném gói tin vào dòng thời gian của OMNeT++
-                scheduleAt(targetTime, moveMsg);
-                // --------------------------
+                // ----------------------------------
 
             } catch (...) {
                 EV << "[TraCIManager] Lỗi Parse lệnh: " << cmd << "\n";

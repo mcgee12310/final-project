@@ -103,28 +103,7 @@
       position: relative;
     }
 
-    #infoPanel {
-      flex: 1;
-      background: #fff;
-      padding: 15px;
-      border-radius: 8px;
-      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-      overflow-y: auto;
-      font-size: 13px;
-      box-sizing: border-box;
-    }
 
-    .event-line {
-      padding: 4px 0;
-      border-bottom: 1px solid #eee;
-      font-family: monospace;
-    }
-
-    .event-line.highlight {
-      background: #fff3cd;
-      font-weight: bold;
-      color: #856404;
-    }
 
     #frameBar {
       position: fixed;
@@ -143,6 +122,100 @@
     #frameSlider {
       flex: 1;
       cursor: pointer;
+    }
+
+    /* ─── GIAO DIỆN KHUNG THUYẾT MINH ─── */
+    #logBox {
+      width: 380px;
+      flex-shrink: 0;
+      background: #fff;
+      color: #333;
+      display: flex;
+      flex-direction: column;
+      border-radius: 8px;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    }
+
+    #logHeader {
+      padding: 15px;
+      background: #f8f9fa;
+      font-weight: bold;
+      font-size: 16px;
+      color: #2c3e50;
+      border-bottom: 1px solid #eee;
+      border-top-left-radius: 8px;
+      border-top-right-radius: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    #logContent {
+      flex: 1;
+      padding: 15px;
+      overflow-y: auto;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    #logContent::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    #logContent::-webkit-scrollbar-track {
+      background: #f4f7f6;
+    }
+
+    #logContent::-webkit-scrollbar-thumb {
+      background: #bdc3c7;
+      border-radius: 4px;
+    }
+
+    #logContent::-webkit-scrollbar-thumb:hover {
+      background: #95a5a6;
+    }
+
+    .caption-line {
+      margin-bottom: 12px;
+      padding-bottom: 8px;
+      border-bottom: 1px dashed #eee;
+    }
+
+    .caption-time {
+      font-size: 11px;
+      color: #888;
+      display: block;
+      margin-bottom: 2px;
+    }
+
+    .caption-text {
+      color: #333;
+    }
+
+    .cap-info {
+      color: #7f8c8d;
+    }
+
+    .cap-contend {
+      color: #d35400;
+      font-weight: 500;
+    }
+
+    .cap-winner {
+      color: #27ae60;
+      font-weight: bold;
+      font-size: 15px;
+    }
+
+    .cap-data {
+      color: #2980b9;
+      font-weight: bold;
+    }
+
+    .cap-warn {
+      color: #c0392b;
+      font-style: italic;
     }
   </style>
 </head>
@@ -200,9 +273,9 @@
         </g>
       </svg>
     </div>
-    <div id="infoPanel">
-      <h3>Event Log</h3>
-      <div id="eventList"></div>
+    <div id="logBox">
+      <div id="logHeader">Sự kiện (Log)</div>
+      <div id="logContent"></div>
     </div>
   </div>
 
@@ -224,6 +297,8 @@
     let playing = false;
     let animationRef = null;
     let lastRafTime = null;   // wall-clock timestamp for smooth real-time stepping
+    let lastProcessedTime = -1;
+    let lastEventIndex = -1;
 
     const FADE_WINDOW = 0.5;
     const speedLevels = [0.25, 0.5, 0.75, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
@@ -235,7 +310,15 @@
     const edgeLayer = d3.select("#edge-layer");
     const mapLayer = d3.select("#map-layer");
     const effectLayer = d3.select("#effect-layer");
-    const eventListDiv = document.getElementById("eventList");
+    const logDisplay = document.getElementById("logContent");
+
+    let isUserScrolling = false;
+    if (logDisplay) {
+      logDisplay.addEventListener("scroll", () => {
+        const atBottom = Math.abs(logDisplay.scrollHeight - logDisplay.scrollTop - logDisplay.clientHeight) < 10;
+        isUserScrolling = !atBottom;
+      });
+    }
 
     const zoom = d3.zoom().scaleExtent([0.05, 20]).on("zoom", (e) => {
       const k = e.transform.k;
@@ -330,6 +413,10 @@
 
       document.getElementById("parseStatus").textContent =
         `✔ Loaded ${events.length} events  (${tMin.toFixed(2)}s – ${tMax.toFixed(2)}s)`;
+
+      lastProcessedTime = -1;
+      lastEventIndex = -1;
+      if (logDisplay) logDisplay.innerHTML = '';
 
       initNodes();
       updateFrame(currentTime);
@@ -510,10 +597,30 @@
       // ── Active events window ─────────────────────────────────────────────────
       const activeEvents = events.filter(e => e.time <= t && e.time > t - FADE_WINDOW);
 
-      // Event log panel
-      eventListDiv.innerHTML = activeEvents.slice(-20).reverse().map(e =>
-        `<div class="event-line highlight">[${e.time.toFixed(4)}] N${e.node !== undefined ? e.node : (e.from !== undefined ? e.from : '-')}: ${e.event}${e.type ? ' (' + e.type + ')' : ''}${e.status ? ' ' + e.status : ''}</div>`
-      ).join('');
+      // Event log panel (Narrative)
+      let currentIndex = -1;
+      for (let i = 0; i < events.length; i++) {
+        if (events[i].time <= t) currentIndex = i;
+        else break;
+      }
+
+      if (t < lastProcessedTime || t - lastProcessedTime > 2) {
+        // Jumped backward or large jump forward (e.g. slider)
+        if (logDisplay) logDisplay.innerHTML = '';
+        for (let i = 0; i <= currentIndex; i++) {
+          const narrative = translateLogToNarrative(events[i]);
+          if (narrative) appendSubtitle(narrative, true);
+        }
+      } else {
+        // Normal playback forward
+        for (let i = lastEventIndex + 1; i <= currentIndex; i++) {
+          const narrative = translateLogToNarrative(events[i]);
+          if (narrative) appendSubtitle(narrative, false);
+        }
+      }
+
+      lastProcessedTime = t;
+      lastEventIndex = currentIndex;
 
       effectLayer.selectAll("*").remove();
       edgeLayer.selectAll("*").remove();
@@ -620,17 +727,22 @@
           });
         }
 
-        // SEND / SEND_DATA
-        if (e.event === "SEND" || e.event === "SEND_DATA") {
+        // SEND_RTB / SEND_CTB / SEND_DATA
+        if (e.event === "SEND_RTB" || e.event === "SEND_CTB" || e.event === "SEND_DATA" || e.event === "SEND") {
           const srcId = e.from !== undefined ? e.from : e.node;
           const src = latestPos[srcId] || nodePositions[srcId];
           if (!src) return;
 
-          const pType = (e.type || "DATA").toUpperCase();
+          let pType = "";
+          if (e.event === "SEND_RTB") pType = "RTB";
+          else if (e.event === "SEND_CTB") pType = "CTB";
+          else if (e.event === "SEND_DATA") pType = "DATA";
+          else pType = (e.type || "DATA").toUpperCase();
+
           let color = "#3498db";
           let marker = "url(#arrow-blue)";
           if (pType.includes("CTB")) { color = "#f1c40f"; marker = "url(#arrow-yellow)"; }
-          if (pType.includes("DATA") || e.event === "SEND_DATA") { color = "#2ecc71"; marker = "url(#arrow-green)"; }
+          if (pType.includes("DATA")) { color = "#2ecc71"; marker = "url(#arrow-green)"; }
 
           const destStr = String(e.to || "").toUpperCase();
 
@@ -866,6 +978,127 @@
           .attr("fill", "rgba(52, 152, 219, 0.15)") // Nền ngã tư màu xanh nhạt
           .attr("stroke", "#3498db")
           .attr("stroke-width", 1);
+      }
+    }
+
+    // ─── HÀM DỊCH LOG SANG LỜI THUYẾT MINH ────────────────────────────────────────
+    function translateLogToNarrative(e) {
+      const time = e.time.toFixed(4);
+      let text = "";
+      let styleClass = "cap-info";
+
+      if (e.event === "APP_SEND") {
+        text = `📱 <b>Tầng App Xe ${e.node}</b> gửi tin khẩn cấp: <i>"${e.payload || ''}"</i>.`;
+        styleClass = "cap-data";
+      }
+      else if (e.event === "SEND_RTB") {
+        text = `🔊 <b>Xe ${e.from !== undefined ? e.from : e.node}</b> gửi RTB bắt đầu tranh chấp.`;
+        styleClass = "cap-contend";
+      }
+      else if (e.event === "SEND_CTB") {
+        text = `🔊 <b>Xe ${e.from !== undefined ? e.from : e.node}</b> gửi CTB xác nhận relay.`;
+        styleClass = "cap-contend";
+      }
+      else if (e.event === "FILTER") {
+        // Giải thích lý do xe lờ đi gói tin (Ví dụ: WRONG_DIRECTION)
+        if (e.status === "WRONG_DIRECTION") {
+          text = `🧭 <b>Xe ${e.node}</b> bỏ qua RTB vì nằm ngoài hướng truyền.`;
+          styleClass = "cap-info";
+        } else {
+          return null; // Bỏ qua nếu không cần thiết
+        }
+      }
+      else if (e.event === "JOIN_BPAB") {
+        text = `🚗 <b>Xe ${e.node}</b> nhận RTB từ xe ${e.src}, tham gia tranh chấp.`;
+        styleClass = "cap-contend";
+      }
+      else if (e.event === "CONTENSION_ROUND") {
+        text = `🔄 <b>Xe ${e.node}</b> bắt đầu Vòng phân chia nhị phân thứ ${e.round || 0} (${e.range || 'hiện tại'}).`;
+        styleClass = "cap-info";
+      }
+      else if (e.event === "SEND_BB") {
+        text = `⚡ <b>Xe ${e.node}</b> ${e.dist !== undefined ? `(cách ${e.dist}m) ` : ''}ở nửa vùng xa, phát BB.`;
+        styleClass = "cap-contend";
+      }
+      else if (e.event === "DROP_OUT") {
+        text = `🛑 <b>Xe ${e.node}</b> ở vùng gần, nghe thấy BB của xe xa hơn nên rút lui.`;
+        styleClass = "cap-info";
+      }
+      else if (e.event === "ITERATION_KEEP") {
+        // Thuyết minh logic cập nhật cận trên/dưới của thuật toán chia nhị phân
+        let actionVN = e.action === "SHRINK_UPPER" ? "thu hẹp cận trên" : "thu hẹp cận dưới";
+        text = `📏 <b>Xe ${e.node}</b> tiếp tục vòng lặp: ${actionVN} của vùng tranh chấp.`;
+        styleClass = "cap-info";
+      }
+      else if (e.event === "WINNER") {
+        // Lấy giá trị backoff từ object sự kiện (hỗ trợ cả viết hoa/thường tùy parser)
+        let backoffTime = e.backoff !== undefined ? e.backoff : (e.Backoff !== undefined ? e.Backoff : null);
+
+        text = `🏆 <b>Xe ${e.node}</b> thắng tranh chấp, backoff <b>${backoffTime}s</b> trước khi gửi CTB.`;
+        styleClass = "cap-winner";
+      }
+      else if (e.event === "SEND_DATA") {
+        text = `📦 <b>Xe ${e.from !== undefined ? e.from : e.node}</b> gửi dữ liệu tới Relay <b>Xe ${e.to}</b>.`;
+        styleClass = "cap-data";
+      }
+      else if (e.event === "RCV_DATA") {
+        if (e.status === "SUCCESS_RELAY") {
+          text = `🎯 <b>Xe ${e.node}</b> relay nhận gói tin, chuẩn bị chuyển tiếp.`;
+          styleClass = "cap-winner";
+        } else if (e.status === "UP_TO_APP") {
+          text = `📥 <b>Xe ${e.node}</b> chuyển gói tin lên tầng app.`;
+          styleClass = "cap-info";
+        } else {
+          return null; // Bỏ qua PASSIVE_RECEIVE để tránh trôi log quá nhanh
+        }
+      }
+      else if (e.event === "ACK_RECEIVED") {
+        text = `🤝 <b>Xe ${e.node}</b> nghe được RTB của relay, ACK thành công.`;
+        styleClass = "cap-winner";
+      }
+      else if (e.event === "ACK_TIMEOUT") {
+        text = `⚠️ <b>Xe ${e.node}</b> timeout đợi RTB của relay, chuẩn bị truyền lại.`;
+        styleClass = "cap-warn";
+      }
+      else if (e.event === "RETRY") {
+        text = `🔁 <b>Xe ${e.node}</b> phát lại gói RTB lần thứ ${e.count || 1}.`;
+        styleClass = "cap-warn";
+      }
+      else if (e.event === "DROP_PKT") {
+        text = `❌ <b>Xe ${e.node}</b> hủy gói tin.`;
+        styleClass = "cap-warn";
+      }
+      else if (e.event === "APP_RCV") {
+        text = `✅ <b>Tầng App Xe ${e.node}</b> nhận: <i>"${e.payload || 'Dữ liệu'}"</i>.`;
+        styleClass = "cap-winner";
+      } else {
+        return null;
+      }
+
+      return { time, text, styleClass };
+    }
+
+    // ─── HÀM HIỂN THỊ PHỤ ĐỀ ─────────────────────────────────
+    function appendSubtitle(narrative, instant = false) {
+      if (!narrative || !logDisplay) return;
+
+      const div = document.createElement("div");
+      div.className = `caption-line ${narrative.styleClass}`;
+
+      const timeSpan = document.createElement("span");
+      timeSpan.className = "caption-time";
+      timeSpan.innerText = `⏳ Giây ${narrative.time}`;
+      div.appendChild(timeSpan);
+
+      const textSpan = document.createElement("span");
+      textSpan.className = "caption-text";
+      textSpan.innerHTML = narrative.text;
+      div.appendChild(textSpan);
+
+      logDisplay.appendChild(div);
+
+      if (!isUserScrolling) {
+        logDisplay.scrollTop = logDisplay.scrollHeight;
       }
     }
   </script>

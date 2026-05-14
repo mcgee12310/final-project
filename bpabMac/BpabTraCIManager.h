@@ -2,7 +2,7 @@
 #define _BPABTRACIMANAGER_H_
 
 #include <omnetpp.h>
-#include "VirtualMobilityManager.h" // Thư viện di chuyển của Castalia
+#include "VirtualMobilityManager.h" // ThÆ° viá»‡n di chuyá»ƒn cá»§a Castalia
 
 #ifdef _WIN32
     #include <winsock2.h>
@@ -17,9 +17,11 @@
 
 class BpabTraCIManager : public cSimpleModule {
   public:
-    // Đặt public static để BpabMac có thể truy cập và gửi Log (WEBLOG)
+    // Ä�áº·t public static Ä‘á»ƒ BpabMac cÃ³ thá»ƒ truy cáº­p vÃ  gá»­i Log (WEBLOG)
     static int tcpClientSocket;
     static void writeToUnifiedLog(double time, int nodeId, std::string event, std::string data);
+    static BpabTraCIManager* instance;
+    static void forceInstantTraCISync();
 
   protected:
     static std::ofstream unifiedLog;
