@@ -561,6 +561,11 @@
           activeContentions[e.src].direction = (e.dir || "EAST").toUpperCase();
           activeContentions[e.src].maxR = parseFloat(e.maxr || 300);
           activeContentions[e.src].widthW = parseFloat(e.width || 50);
+
+          if (!activeContentions[e.src].frozenPos) {
+            const p = latestPos[e.src] || nodePositions[e.src];
+            if (p) activeContentions[e.src].frozenPos = { x: p.x, y: p.y };
+          }
         }
 
         if (e.event === "CONTENSION_ROUND" && e.node !== undefined && e.range !== undefined) {
@@ -632,7 +637,7 @@
         const age = t - cont.time;
         if (age < 0 || age >= 0.8) return;
 
-        const srcNode = latestPos[srcId] || nodePositions[srcId];
+        const srcNode = cont.frozenPos || latestPos[srcId] || nodePositions[srcId];
         if (!srcNode) return;
 
         const alpha = Math.max(0, 1 - age / 0.8);
@@ -999,15 +1004,15 @@
         text = `🔊 <b>Xe ${e.from !== undefined ? e.from : e.node}</b> gửi CTB xác nhận relay.`;
         styleClass = "cap-contend";
       }
-      else if (e.event === "FILTER") {
-        // Giải thích lý do xe lờ đi gói tin (Ví dụ: WRONG_DIRECTION)
-        if (e.status === "WRONG_DIRECTION") {
-          text = `🧭 <b>Xe ${e.node}</b> bỏ qua RTB vì nằm ngoài hướng truyền.`;
-          styleClass = "cap-info";
-        } else {
-          return null; // Bỏ qua nếu không cần thiết
-        }
-      }
+      // else if (e.event === "FILTER") {
+      //   // Giải thích lý do xe lờ đi gói tin (Ví dụ: WRONG_DIRECTION)
+      //   if (e.status === "WRONG_DIRECTION") {
+      //     text = `🧭 <b>Xe ${e.node}</b> bỏ qua RTB vì nằm ngoài hướng truyền.`;
+      //     styleClass = "cap-info";
+      //   } else {
+      //     return null; // Bỏ qua nếu không cần thiết
+      //   }
+      // }
       else if (e.event === "JOIN_BPAB") {
         text = `🚗 <b>Xe ${e.node}</b> nhận RTB từ xe ${e.src}, tham gia tranh chấp.`;
         styleClass = "cap-contend";
@@ -1046,8 +1051,8 @@
           text = `🎯 <b>Xe ${e.node}</b> relay nhận gói tin, chuẩn bị chuyển tiếp.`;
           styleClass = "cap-winner";
         } else if (e.status === "UP_TO_APP") {
-          text = `📥 <b>Xe ${e.node}</b> chuyển gói tin lên tầng app.`;
-          styleClass = "cap-info";
+          // text = `📥 <b>Xe ${e.node}</b> chuyển gói tin lên tầng app.`;
+          // styleClass = "cap-info";
         } else {
           return null; // Bỏ qua PASSIVE_RECEIVE để tránh trôi log quá nhanh
         }

@@ -138,12 +138,31 @@ void BpabMac::fromRadioLayer(cPacket *msg, double rssi, double lqi) {
             this->srcY       = srcY;
             limitL           = 0;
             limitU           = rangeR;
+            this->srcDirection = pkt->getDirection();
             currentIteration = 0;
             heardBB          = false;
             isTransmitting   = false;
             bpabMacState     = BPAB_CONTENDING;
             WEBLOG("EVENT:STATE | Node:" << self << " | State:CONTENDING");
             setTimer(1, slotDuration);
+
+            double now = simTime().dbl();
+            double rtbSentTime = pkt->getRtbSentTime();  // lấy từ gói RTB (đã có sẵn)
+
+            // Mốc = thời điểm RTB được gửi + N * slotDuration,
+            // chọn N sao cho mốc > now + epsilon
+            double boundary = rtbSentTime + slotDuration;
+            while (boundary <= now + 0.0001) {
+                boundary += slotDuration;
+            }
+            slotStartTime = boundary;
+
+            double delay = slotStartTime - now;
+            WEBLOG("EVENT:SYNC_SLOT | Node:" << self
+                << " | SlotStart:" << slotStartTime
+                << " | Delay:" << delay);
+            setTimer(1, delay);
+
             break;
         }
 
@@ -221,6 +240,16 @@ void BpabMac::timerFiredCallback(int timerIndex) {
                 break;
             }
 
+            myX = mobilityModule->getLocation().x;
+            myY = mobilityModule->getLocation().y;
+            // Kiểm tra lại xem node còn hợp lệ không
+            // (có thể đã di chuyển ra ngoài corridor)
+            if (!isValidForwardNode(myX, myY, srcX, srcY, srcDirection, rangeR)) {
+                // Node đã ra ngoài vùng hợp lệ → rút khỏi contention
+                endContention(false);
+                break;
+            }
+
             double mid = (limitL + limitU) / 2.0;
             heardBB = false;
             WEBLOG("EVENT:CONTENSION_ROUND | Round:" << currentIteration
@@ -263,7 +292,14 @@ void BpabMac::timerFiredCallback(int timerIndex) {
             }
 
             currentIteration++;
-            setTimer(1, slotDuration);
+            double nextRoundStart = slotStartTime
+                                  + currentIteration * (2.0 * slotDuration);
+            double now = simTime().dbl();
+            double delay = nextRoundStart - now;
+
+            if (delay < 0.0001) delay = 0.0001;  // safety margin
+
+            setTimer(1, delay);
             break;
         }
 
@@ -446,7 +482,7 @@ void BpabMac::sendRTB() {
 void BpabMac::sendBlackBurst() {
     BPABPacket *bb = new BPABPacket("BLACK_BURST", MAC_LAYER_PACKET);
     bb->setBpabType(BPAB_BLACK_BURST);
-    bb->setByteLength(1);
+    bb->setByteLength(128);
     toRadioLayer(bb);
     toRadioLayer(createRadioCommand(SET_STATE, TX));
 }

@@ -49,6 +49,8 @@ class BpabMac: public VirtualMac {
     double lastX;
     double lastY;
     double myDistanceToSrc;
+    int srcDirection;
+    double slotStartTime;
 
     int transmissionDirection;
     BpabMacState bpabMacState; // Trang thai hien tai cua MAC

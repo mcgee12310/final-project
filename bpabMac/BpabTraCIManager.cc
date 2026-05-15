@@ -61,8 +61,33 @@ void BpabTraCIManager::initialize() {
 // HÀM STATIC: ĐƯỢC GỌI TỪ TẦNG MAC/APP ĐỂ ÉP VÉT SẠCH BUFFER TCP TỨC THỜI
 void BpabTraCIManager::forceInstantTraCISync() {
     if (instance && tcpClientSocket != -1) {
-        // Đọc ngay lập tức các lệnh vị trí mới nhất từ đệm OS gửi sang
-        instance->pollTcpSocket();
+        cContextSwitcher tmp(instance);
+
+        // VÒNG LẶP VÉT SẠCH: Đọc cho đến khi không còn gì trong socket
+        // hoặc đã bắt kịp thời gian hiện tại
+        bool hasMoreData = true;
+        int safetyCounter = 0; // Tránh vòng lặp vô tận nếu dữ liệu đổ về quá nhanh
+
+        while (hasMoreData && safetyCounter < 100) {
+            char buffer[4096]; // Tăng buffer lên 4KB
+            int bytesRead = recv(tcpClientSocket, buffer, sizeof(buffer) - 1, 0);
+
+            if (bytesRead > 0) {
+                buffer[bytesRead] = '\0';
+                std::string data(buffer);
+                std::stringstream ss(data);
+                std::string cmd;
+                while (std::getline(ss, cmd, '\n')) {
+                    if (!cmd.empty()) {
+                        instance->processCommand(cmd);
+                    }
+                }
+                safetyCounter++;
+            } else {
+                // Không còn dữ liệu trong đệm OS
+                hasMoreData = false;
+            }
+        }
     }
 }
 
@@ -205,6 +230,7 @@ void BpabTraCIManager::processCommand(const std::string& cmd) {
 
                     if (mobModule) {
                         VirtualMobilityManager *mob = check_and_cast<VirtualMobilityManager*>(mobModule);
+                        cContextSwitcher tmp(mobModule);
                         mob->setLocation(x, y, 0); // Ghi đè trực tiếp tọa độ thực tế
 
                         if (unifiedLog.is_open()) {
