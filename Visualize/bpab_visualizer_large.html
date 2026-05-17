@@ -1,0 +1,767 @@
+<!doctype html>
+<html lang="vi">
+
+<head>
+    <meta charset="utf-8" />
+    <title>BPAB Protocol Visualizer — Large Scale</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        body {
+            font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            background: #f4f7f6;
+            color: #333;
+            overflow-y: auto;
+            padding-bottom: 80px;
+            box-sizing: border-box;
+        }
+
+        h2 {
+            margin-top: 0;
+            color: #2c3e50;
+        }
+
+        #controlsBox {
+            background: #fff;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            margin: 10px;
+        }
+
+        .btn {
+            padding: 8px 12px;
+            border-radius: 4px;
+            border: none;
+            background: #3498db;
+            color: white;
+            cursor: pointer;
+            font-weight: bold;
+            margin-right: 5px;
+        }
+
+        .btn:hover {
+            background: #2980b9;
+        }
+
+        .btn.play {
+            background: #2ecc71;
+        }
+
+        .btn.play:hover {
+            background: #27ae60;
+        }
+
+        .btn.pause {
+            background: #e74c3c;
+        }
+
+        .btn.pause:hover {
+            background: #c0392b;
+        }
+
+        textarea {
+            width: 100%;
+            height: 80px;
+            font-family: monospace;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            padding: 5px;
+            box-sizing: border-box;
+        }
+
+        .legend-item {
+            display: inline-flex;
+            align-items: center;
+            margin-right: 15px;
+            font-size: 12px;
+        }
+
+        .color-box {
+            width: 12px;
+            height: 12px;
+            display: inline-block;
+            margin-right: 5px;
+            border-radius: 3px;
+        }
+
+        #main {
+            display: flex;
+            gap: 15px;
+            margin: 0 10px 10px 10px;
+            height: 85vh;
+            min-height: 700px;
+        }
+
+        #canvas-wrap {
+            flex: 1;
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            position: relative;
+        }
+
+        #frameBar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: #fff;
+            padding: 10px 20px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            box-shadow: 0 -5px 15px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+        }
+
+        #frameSlider {
+            flex: 1;
+            cursor: pointer;
+        }
+
+
+        /* perf badge */
+        #perfBadge {
+            position: absolute;
+            top: 8px;
+            right: 12px;
+            background: rgba(44, 62, 80, 0.75);
+            color: #2ecc71;
+            font-size: 11px;
+            font-family: monospace;
+            padding: 3px 8px;
+            border-radius: 4px;
+            pointer-events: none;
+            z-index: 10;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="controlsBox">
+        <h2>⚙ BPAB Simulator Controls <small style="font-size:13px;color:#7f8c8d;font-weight:normal;">— Large Scale Mode
+                (500+ nodes)</small></h2>
+        <div style="display:flex;gap:16px;">
+            <div style="flex:2;">
+                <label><b>Paste Castalia Log Here:</b></label>
+                <textarea id="logArea" placeholder="Paste your Castalia-Trace.txt content here..."></textarea>
+                <div style="margin-top:5px;">
+                    <button id="btnParse" class="btn">Load &amp; Parse Log</button>
+                    <span id="parseStatus" style="margin-left:10px;font-size:12px;color:#27ae60;"></span>
+                </div>
+            </div>
+            <div style="flex:1;border-left:2px solid #eee;padding-left:20px;">
+                <label><b>Legend:</b></label><br>
+                <div class="legend-item"><span class="color-box" style="background:#bdc3c7;"></span> IDLE</div>
+                <div class="legend-item"><span class="color-box" style="background:#f1c40f;"></span> CONTENDING</div>
+                <div class="legend-item"><span class="color-box" style="background:#3498db;"></span> WAIT_CTB/DATA</div>
+                <div class="legend-item"><span class="color-box" style="background:#9b59b6;"></span> WAIT_ACK</div>
+                <div class="legend-item"><span class="color-box" style="background:#e67e22;"></span> PRE_CTB</div>
+                <div class="legend-item"><span class="color-box" style="background:#ffd700;border-radius:50%"></span>
+                    WINNER</div><br>
+                <div class="legend-item"><span style="color:#3498db;font-weight:bold;">→</span> RTB</div>
+                <div class="legend-item"><span style="color:#f1c40f;font-weight:bold;">→</span> CTB</div>
+                <div class="legend-item"><span style="color:#2ecc71;font-weight:bold;">→</span> DATA</div>
+            </div>
+        </div>
+    </div>
+
+    <div id="main">
+        <div id="canvas-wrap">
+            <div id="perfBadge">0 nodes · 0 events</div>
+            <svg id="svg" width="100%" height="100%">
+                <defs>
+                    <marker id="arrow-green" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+                        <path d="M0,0 L0,6 L8,3 z" fill="#2ecc71" />
+                    </marker>
+                    <marker id="arrow-blue" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+                        <path d="M0,0 L0,6 L8,3 z" fill="#3498db" />
+                    </marker>
+                    <marker id="arrow-yellow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+                        <path d="M0,0 L0,6 L8,3 z" fill="#f1c40f" />
+                    </marker>
+                </defs>
+                <g id="zoom-layer">
+                    <g id="grid-layer"></g>
+                    <g id="map-layer"></g>
+                    <g id="edge-layer"></g>
+                    <g id="node-layer"></g>
+                </g>
+            </svg>
+        </div>
+
+    </div>
+
+    <div id="frameBar">
+        <button id="playPauseBtn" class="btn play">▶ Play</button>
+        <label>Speed:</label>
+        <input type="range" id="speedInput" min="0" max="12" value="3" step="1">
+        <span id="speedLabel">1x</span>
+        <input id="frameSlider" type="range" min="0" max="100" value="0" step="0.01">
+        <div id="timeLabel" style="min-width:80px;font-weight:bold;color:#2980b9;">0.0000 s</div>
+    </div>
+
+    <script>
+        // ─── CONSTANTS & CONFIG ───────────────────────────────────────────────────────
+        const speedLevels = [0.25, 0.5, 0.75, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+
+        // Arrow line TTL: only DATA/CTB/RTB lines — no particle effects, no waves
+        const ARROW_TTL = 0.3;   // seconds an arrow stays visible (short = less clutter)
+
+
+        // ─── STATE ───────────────────────────────────────────────────────────────────
+        let events = [];
+        let nodePositions = {};    // nodeId -> {x, y}  (initial / POS events)
+        let tMin = 0, tMax = 0;
+        let currentTime = 0;
+        let playing = false;
+        let animationRef = null;
+        let lastRafTime = null;
+
+        // ── Pre-built timeline index ──────────────────────────────────────────────────
+        // stateAt[nodeId] = sorted array of {time, state, isWinner}
+        // posAt[nodeId]   = sorted array of {time, x, y}
+        // arrowEvents     = subset of events that draw arrows (RTB/CTB/DATA sends)
+        let stateTimeline = {};
+        let posTimeline = {};
+        let arrowEvents = [];
+
+        // Cache: current state per node (updated incrementally)
+        let nodeStateCache = {};  // nodeId -> {state, isWinner}
+        let nodePosCache = {};  // nodeId -> {x, y}
+        let lastSeekTime = -Infinity;
+        let lastEventIndex = -1;
+
+
+
+        // ─── D3 SETUP ────────────────────────────────────────────────────────────────
+        const svg = d3.select("#svg");
+        const zoomLayer = d3.select("#zoom-layer");
+        const nodeLayer = d3.select("#node-layer");
+        const edgeLayer = d3.select("#edge-layer");
+        const mapLayer = d3.select("#map-layer");
+
+        // Current zoom transform (kept in sync)
+        let currentTransform = d3.zoomIdentity;
+        let invK = 1;
+
+        const zoom = d3.zoom().scaleExtent([0.02, 30]).on("zoom", e => {
+            currentTransform = e.transform;
+            invK = 1 / e.transform.k;
+            zoomLayer.attr("transform", e.transform);
+            drawDynamicGrid(e.transform);
+            // Scale node circles & labels
+            nodeLayer.selectAll(".node-bg").attr("r", 12 * invK).attr("stroke-width", 1.5 * invK);
+            nodeLayer.selectAll(".node-label").attr("font-size", 10 * invK).attr("y", 3 * invK);
+            edgeLayer.selectAll("line").attr("stroke-width", 1.5 * invK);
+        });
+        svg.call(zoom);
+
+        // ─── PARSER ──────────────────────────────────────────────────────────────────
+        document.getElementById("btnParse").addEventListener("click", () => {
+
+            // Auto-load map
+            fetch("map.net.xml")
+                .then(r => { if (!r.ok) throw new Error("map not found"); return r.text(); })
+                .then(xml => drawSumoMap(xml))
+                .catch(err => console.warn("Map load skipped:", err.message));
+
+            const text = document.getElementById("logArea").value.trim();
+            if (!text) { alert("Please paste log data!"); return; }
+
+            // Reset
+            events = [];
+            nodePositions = {};
+            stateTimeline = {};
+            posTimeline = {};
+            arrowEvents = [];
+            nodeStateCache = {};
+            nodePosCache = {};
+            lastSeekTime = -Infinity;
+            lastEventIndex = -1;
+            // Ở Large Scale không có logDisplay, thêm check an toàn
+            if (typeof logDisplay !== 'undefined' && logDisplay) logDisplay.innerHTML = '';
+
+            // Parse
+            const lines = text.split(/\r?\n/);
+            lines.forEach(rawLine => {
+                const line = rawLine.trim();
+                if (!line || line.startsWith("Time")) return;
+
+                // [ĐÃ SỬA]: Hỗ trợ cả file log dùng khoảng trắng (Space) hoặc Tab (\t)
+                const eventIndex = line.indexOf("EVENT:");
+                if (eventIndex === -1) return;
+
+                // Lấy mốc thời gian ở phần đầu chuỗi
+                const prefix = line.substring(0, eventIndex).trim();
+                const prefixParts = prefix.split(/\s+/);
+                if (prefixParts.length === 0) return;
+
+                const timeVal = parseFloat(prefixParts[0]);
+                if (isNaN(timeVal)) return;
+
+                // Lấy phần nội dung sự kiện
+                const detailsRaw = line.substring(eventIndex);
+
+                const chunks = detailsRaw.split(/\s*\|\s*/);
+                const eventName = chunks[0].replace("EVENT:", "").trim();
+                let evObj = { time: timeVal, event: eventName };
+
+                for (let i = 1; i < chunks.length; i++) {
+                    const idx = chunks[i].indexOf(":");
+                    if (idx === -1) continue;
+                    const k = chunks[i].slice(0, idx).trim().toLowerCase();
+                    const v = chunks[i].slice(idx + 1).trim();
+                    evObj[k] = isNaN(v) ? v : parseFloat(v);
+                }
+
+                // Chuẩn hóa Node ID (Trường hợp log chỉ in 'From:X' mà thiếu 'Node:X')
+                if (evObj.node === undefined && evObj.from !== undefined) {
+                    evObj.node = evObj.from;
+                }
+
+                events.push(evObj);
+            });
+
+            if (!events.length) { alert("No valid events found!"); return; }
+            events.sort((a, b) => a.time - b.time);
+
+            tMin = events[0].time;
+            tMax = events[events.length - 1].time;
+            currentTime = tMin;
+
+            const slider = document.getElementById("frameSlider");
+            slider.min = tMin; slider.max = tMax;
+            slider.value = tMin;
+            slider.step = (tMax - tMin) / 5000;
+
+            // ── Build pre-sorted timelines ─────────────────────────────────────────────
+            events.forEach(e => {
+                const n = e.node;
+
+                // POS events
+                if (e.event === "POS" && n !== undefined) {
+                    nodePositions[n] = { x: e.x, y: -(e.y || 0) };
+                    if (!posTimeline[n]) posTimeline[n] = [];
+                    posTimeline[n].push({ time: e.time, x: e.x, y: -(e.y || 0) });
+                }
+
+                // STATE events
+                if (e.event === "STATE" && n !== undefined) {
+                    if (!stateTimeline[n]) stateTimeline[n] = [];
+                    stateTimeline[n].push({ time: e.time, state: e.state, isWinner: false });
+                }
+                if (e.event === "WINNER" && n !== undefined) {
+                    if (!stateTimeline[n]) stateTimeline[n] = [];
+                    stateTimeline[n].push({ time: e.time, state: "__WINNER__", isWinner: true });
+                }
+
+                // Arrow events (lightweight — just store reference)
+                if (["SEND_RTB", "SEND_CTB", "SEND_DATA"].includes(e.event)) {
+                    arrowEvents.push(e);
+                }
+            });
+
+            document.getElementById("parseStatus").textContent =
+                `✔ Loaded ${events.length} events · ${Object.keys(nodePositions).length} nodes  (${tMin.toFixed(2)}s – ${tMax.toFixed(2)}s)`;
+            document.getElementById("perfBadge").textContent =
+                `${Object.keys(nodePositions).length} nodes · ${events.length} events`;
+
+            initNodes();
+            seekTo(currentTime, true);
+        });
+
+        // ─── GRID ─────────────────────────────────────────────────────────────────────
+        function drawDynamicGrid(tf) {
+            const svgEl = document.getElementById("svg");
+            const W = svgEl.clientWidth || 1000;
+            const H = svgEl.clientHeight || 800;
+            const xMin = (-tf.x) / tf.k, xMax = (W - tf.x) / tf.k;
+            const yMin = (-tf.y) / tf.k, yMax = (H - tf.y) / tf.k;
+
+            let step = 100;
+            if (tf.k <= 0.1) step = 1000;
+            else if (tf.k <= 0.5) step = 200;
+            else if (tf.k <= 2) step = 100;
+            else if (tf.k <= 5) step = 20;
+            else step = 10;
+
+            const gridLayer = d3.select("#grid-layer");
+            gridLayer.selectAll("*").remove();
+            const ik = 1 / tf.k;
+
+            for (let x = Math.floor(xMin / step) * step; x <= Math.ceil(xMax / step) * step; x += step) {
+                gridLayer.append("line")
+                    .attr("x1", x).attr("y1", yMin).attr("x2", x).attr("y2", yMax)
+                    .attr("stroke", x === 0 ? "#95a5a6" : "#ecf0f1")
+                    .attr("stroke-width", x === 0 ? 2 * ik : 1 * ik)
+                    .attr("stroke-dasharray", x === 0 ? "" : `${5 * ik},${5 * ik}`);
+                gridLayer.append("text").attr("x", x).attr("y", yMin + 15 * ik).text(x)
+                    .attr("fill", "#bdc3c7").attr("font-size", 12 * ik).attr("text-anchor", "middle");
+            }
+            for (let y = Math.floor(yMin / step) * step; y <= Math.ceil(yMax / step) * step; y += step) {
+                gridLayer.append("line")
+                    .attr("x1", xMin).attr("y1", y).attr("x2", xMax).attr("y2", y)
+                    .attr("stroke", y === 0 ? "#95a5a6" : "#ecf0f1")
+                    .attr("stroke-width", y === 0 ? 2 * ik : 1 * ik)
+                    .attr("stroke-dasharray", y === 0 ? "" : `${5 * ik},${5 * ik}`);
+                gridLayer.append("text").attr("x", xMin + 5 * ik).attr("y", y - 5 * ik)
+                    .text(-y === 0 ? 0 : -y)
+                    .attr("fill", "#bdc3c7").attr("font-size", 12 * ik).attr("text-anchor", "start");
+            }
+        }
+
+        // ─── INIT NODES ───────────────────────────────────────────────────────────────
+        // Uses D3 data-join: nodes are created once and updated in-place
+        function initNodes() {
+            nodeLayer.selectAll("*").remove();
+
+            const nodeData = Object.entries(nodePositions); // [[id, {x,y}], ...]
+
+            const g = nodeLayer.selectAll("g.node")
+                .data(nodeData, d => d[0])
+                .join("g")
+                .attr("class", "node")
+                .attr("data-id", d => d[0])
+                .attr("transform", d => `translate(${d[1].x},${d[1].y})`);
+
+            g.append("circle")
+                .attr("class", "node-bg")
+                .attr("r", 12 * invK)
+                .attr("fill", "#bdc3c7")
+                .attr("stroke", "#7f8c8d")
+                .attr("stroke-width", 1.5 * invK);
+
+            g.append("text")
+                .attr("class", "node-label")
+                .text(d => d[0])
+                .attr("y", 3 * invK)
+                .attr("text-anchor", "middle")
+                .attr("font-size", 10 * invK)
+                .attr("fill", "white")
+                .attr("font-weight", "bold")
+                .style("pointer-events", "none");
+
+            // Init caches
+            Object.keys(nodePositions).forEach(n => {
+                nodeStateCache[n] = { state: "IDLE", isWinner: false };
+                nodePosCache[n] = { ...nodePositions[n] };
+            });
+
+            svg.transition().duration(600).call(
+                zoom.transform, d3.zoomIdentity.translate(200, 200).scale(1.2)
+            );
+        }
+
+        // ─── STATE COLOR ─────────────────────────────────────────────────────────────
+        function getStateColor(state, isWinner) {
+            if (isWinner) return "#ffd700";
+            if (state === "CONTENDING") return "#f1c40f";
+            if (state === "WAIT_ACK") return "#9b59b6";
+            if (state && state.includes("WAIT")) return "#3498db";
+            if (state === "PRE_CTB") return "#e67e22";
+            return "#bdc3c7";
+        }
+
+        // ─── BINARY SEARCH helpers ───────────────────────────────────────────────────
+        // Returns index of last entry with .time <= t, or -1
+        function bsearchLE(arr, t) {
+            let lo = 0, hi = arr.length - 1, res = -1;
+            while (lo <= hi) {
+                const mid = (lo + hi) >> 1;
+                if (arr[mid].time <= t) { res = mid; lo = mid + 1; }
+                else hi = mid - 1;
+            }
+            return res;
+        }
+
+        // ─── SEEK (full rebuild from scratch) ────────────────────────────────────────
+        function fullSeek(t) {
+            // Rebuild node state cache from scratch using binary search
+            Object.keys(nodePositions).forEach(n => {
+                // Position
+                const pt = posTimeline[n];
+                if (pt) {
+                    const i = bsearchLE(pt, t);
+                    if (i >= 0) nodePosCache[n] = { x: pt[i].x, y: pt[i].y };
+                    else nodePosCache[n] = { ...nodePositions[n] };
+                }
+
+                // State
+                const st = stateTimeline[n];
+                if (!st) { nodeStateCache[n] = { state: "IDLE", isWinner: false }; return; }
+                const i = bsearchLE(st, t);
+                if (i < 0) { nodeStateCache[n] = { state: "IDLE", isWinner: false }; return; }
+
+                // Walk from i backward to find last real state + check winner
+                let state = "IDLE", isWinner = false;
+                for (let j = i; j >= 0; j--) {
+                    const s = st[j];
+                    if (s.isWinner) { isWinner = true; continue; }
+                    if (s.state === "IDLE" || s.state === "WAIT_CTB") { isWinner = false; }
+                    if (state === "IDLE") state = s.state; // take latest non-winner
+                    if (state !== "IDLE") break;
+                }
+                // Re-scan forward for winner resets
+                for (let j = 0; j <= i; j++) {
+                    const s = st[j];
+                    if (s.isWinner) isWinner = true;
+                    else if (s.state === "IDLE" || s.state === "WAIT_CTB") isWinner = false;
+                }
+                // Find latest actual state
+                for (let j = i; j >= 0; j--) {
+                    if (!st[j].isWinner) { state = st[j].state; break; }
+                }
+                nodeStateCache[n] = { state, isWinner };
+            });
+        }
+
+        // ─── INCREMENTAL FORWARD UPDATE ──────────────────────────────────────────────
+        function incrementalForward(fromIdx, toIdx) {
+            for (let i = fromIdx; i <= toIdx; i++) {
+                const e = events[i];
+                const n = e.node;
+                if (n === undefined) continue;
+
+                if (e.event === "POS") {
+                    nodePosCache[n] = { x: e.x, y: -(e.y || 0) };
+                }
+                if (e.event === "STATE") {
+                    if (!nodeStateCache[n]) nodeStateCache[n] = { state: "IDLE", isWinner: false };
+                    nodeStateCache[n].state = e.state;
+                    if (e.state === "IDLE" || e.state === "WAIT_CTB") nodeStateCache[n].isWinner = false;
+                }
+                if (e.event === "WINNER") {
+                    if (!nodeStateCache[n]) nodeStateCache[n] = { state: "IDLE", isWinner: false };
+                    nodeStateCache[n].isWinner = true;
+                }
+            }
+        }
+
+        // ─── APPLY VISUAL STATE ───────────────────────────────────────────────────────
+        // Batches all DOM updates in one pass
+        function applyNodeVisuals() {
+            nodeLayer.selectAll("g.node").each(function (d) {
+                const nid = d[0];
+                const pos = nodePosCache[nid] || nodePositions[nid];
+                const info = nodeStateCache[nid] || { state: "IDLE", isWinner: false };
+                if (pos) d3.select(this).attr("transform", `translate(${pos.x},${pos.y})`);
+                d3.select(this).select("circle").attr("fill", getStateColor(info.state, info.isWinner));
+            });
+        }
+
+        // ─── DRAW ARROWS ──────────────────────────────────────────────────────────────
+        // Only arrows visible in [t-ARROW_TTL, t] — no waves, no broadcast circles
+        function drawArrows(t) {
+            edgeLayer.selectAll("*").remove();
+            const visible = arrowEvents.filter(e => e.time <= t && e.time > t - ARROW_TTL);
+            if (!visible.length) return;
+
+            visible.forEach(e => {
+                const age = t - e.time;
+                const alpha = Math.max(0, 1 - age / ARROW_TTL);
+
+                const srcId = e.from !== undefined ? e.from : e.node;
+                const src = nodePosCache[srcId] || nodePositions[srcId];
+                if (!src) return;
+
+                let color = "#3498db", marker = "url(#arrow-blue)", label = "RTB";
+                if (e.event === "SEND_CTB") { color = "#f1c40f"; marker = "url(#arrow-yellow)"; label = "CTB"; }
+                if (e.event === "SEND_DATA") { color = "#2ecc71"; marker = "url(#arrow-green)"; label = "DATA"; }
+
+                const destStr = String(e.to || "").toUpperCase();
+
+                if (destStr === "BROADCAST") {
+                    // Single expanding ring — no multiple rings (perf)
+                    const r = 30 + age * 250;
+                    edgeLayer.append("circle")
+                        .attr("cx", src.x).attr("cy", src.y).attr("r", r)
+                        .attr("fill", "none").attr("stroke", color)
+                        .attr("stroke-width", 1.5 * invK)
+                        .attr("stroke-dasharray", `${6 * invK},${6 * invK}`)
+                        .attr("opacity", alpha * 0.7);
+                } else if (destStr !== "") {
+                    const destId = parseInt(destStr);
+                    const dest = nodePosCache[destId] || nodePositions[destId];
+                    if (!dest) return;
+                    const dx = dest.x - src.x, dy = dest.y - src.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    if (!dist) return;
+                    const sh = 15 * invK;
+                    const tx = dest.x - (dx / dist) * sh, ty = dest.y - (dy / dist) * sh;
+
+                    edgeLayer.append("line")
+                        .attr("x1", src.x).attr("y1", src.y).attr("x2", tx).attr("y2", ty)
+                        .attr("stroke", color).attr("stroke-width", 2 * invK)
+                        .attr("opacity", alpha).attr("marker-end", marker);
+
+                    edgeLayer.append("text")
+                        .attr("x", (src.x + tx) / 2).attr("y", (src.y + ty) / 2 - 7 * invK)
+                        .text(label)
+                        .attr("fill", color).attr("font-size", 10 * invK).attr("font-weight", "bold")
+                        .attr("text-anchor", "middle").attr("opacity", alpha);
+                }
+            });
+        }
+
+        // ─── MAIN SEEK / UPDATE ───────────────────────────────────────────────────────
+        function seekTo(t, forceRebuild = false) {
+            t = Math.max(tMin, Math.min(tMax, t));
+            currentTime = t;
+
+            document.getElementById("timeLabel").innerText = t.toFixed(4) + " s";
+            document.getElementById("frameSlider").value = t;
+
+            // Find current event index
+            let newEventIndex = -1;
+            for (let i = 0; i < events.length; i++) {
+                if (events[i].time <= t) newEventIndex = i;
+                else break;
+            }
+
+            const jumpedBack = t < lastSeekTime - 0.001;
+            const largeJump = t > lastSeekTime + 2.0;
+            const needRebuild = forceRebuild || jumpedBack;
+
+            if (needRebuild) {
+                fullSeek(t);
+            } else if (largeJump) {
+                fullSeek(t);
+            } else {
+                if (newEventIndex > lastEventIndex) {
+                    incrementalForward(lastEventIndex + 1, newEventIndex);
+                }
+            }
+
+            lastSeekTime = t;
+            lastEventIndex = newEventIndex;
+
+            applyNodeVisuals();
+            drawArrows(t);
+        }
+
+
+
+        // ─── PLAYBACK ─────────────────────────────────────────────────────────────────
+        const playPauseBtn = document.getElementById("playPauseBtn");
+
+        function updatePlayPauseUI() {
+            if (playing) {
+                playPauseBtn.innerHTML = "⏸ Pause";
+                playPauseBtn.className = "btn pause";
+            } else {
+                playPauseBtn.innerHTML = "▶ Play";
+                playPauseBtn.className = "btn play";
+            }
+        }
+
+        function playSim() {
+            if (!events.length) return;
+            if (currentTime >= tMax) currentTime = tMin;
+            playing = true;
+            lastRafTime = null;
+            updatePlayPauseUI();
+            animationRef = requestAnimationFrame(loop);
+        }
+
+        function pauseSim() {
+            playing = false;
+            if (animationRef) { cancelAnimationFrame(animationRef); animationRef = null; }
+            updatePlayPauseUI();
+        }
+
+        function loop(wallTime) {
+            if (!playing) return;
+            const speed = speedLevels[parseFloat(document.getElementById("speedInput").value)];
+            if (lastRafTime !== null) {
+                currentTime += ((wallTime - lastRafTime) / 1000) * speed;
+            }
+            lastRafTime = wallTime;
+            if (currentTime >= tMax) { currentTime = tMax; seekTo(currentTime); pauseSim(); return; }
+            seekTo(currentTime);
+            animationRef = requestAnimationFrame(loop);
+        }
+
+        playPauseBtn.addEventListener("click", () => { playing ? pauseSim() : playSim(); });
+
+        document.getElementById("frameSlider").addEventListener("input", e => {
+            pauseSim();
+            currentTime = parseFloat(e.target.value);
+            if (events.length) seekTo(currentTime);
+        });
+
+        document.getElementById("speedInput").addEventListener("input", e => {
+            const idx = parseInt(e.target.value);
+            document.getElementById("speedLabel").innerText = speedLevels[idx] + "x";
+        });
+
+        // ─── SUMO MAP ─────────────────────────────────────────────────────────────────
+        function drawSumoMap(xmlText) {
+            const parser = new DOMParser();
+            const xmlDoc = parser.parseFromString(xmlText, "text/xml");
+            mapLayer.selectAll("*").remove();
+
+            const edges = xmlDoc.getElementsByTagName("edge");
+            for (let i = 0; i < edges.length; i++) {
+                const lanes = edges[i].getElementsByTagName("lane");
+                for (let j = 0; j < lanes.length; j++) {
+                    const lane = lanes[j];
+                    const shapeStr = lane.getAttribute("shape");
+                    if (!shapeStr) continue;
+                    const w = parseFloat(lane.getAttribute("width") || 3.2);
+                    const pts = shapeStr.split(" ").map(p => { const c = p.split(","); return [parseFloat(c[0]), -parseFloat(c[1])]; });
+                    mapLayer.append("polyline")
+                        .attr("points", pts.map(p => p.join(",")).join(" "))
+                        .attr("fill", "none").attr("stroke", "#333").attr("stroke-width", w);
+                }
+            }
+
+            // Lane markings
+            for (let i = 0; i < edges.length; i++) {
+                const edge = edges[i];
+                if (edge.getAttribute("function") === "internal") continue;
+                const lanes = edge.getElementsByTagName("lane");
+                let maxIdx = -1;
+                for (let j = 0; j < lanes.length; j++) { const idx = parseInt(lanes[j].getAttribute("index")); if (idx > maxIdx) maxIdx = idx; }
+                for (let j = 0; j < lanes.length; j++) {
+                    const lane = lanes[j];
+                    const shapeStr = lane.getAttribute("shape"); if (!shapeStr) continue;
+                    const laneIdx = parseInt(lane.getAttribute("index"));
+                    const w = parseFloat(lane.getAttribute("width") || 3.2);
+                    const pts = shapeStr.split(" ").map(p => { const c = p.split(","); return [parseFloat(c[0]), -parseFloat(c[1])]; });
+                    const offset = w / 2;
+                    for (let k = 0; k < pts.length - 1; k++) {
+                        const [p1, p2] = [pts[k], pts[k + 1]];
+                        const dx = p2[0] - p1[0], dy = p2[1] - p1[1];
+                        const len = Math.sqrt(dx * dx + dy * dy); if (!len) continue;
+                        const nx = dy / len, ny = -dx / len;
+                        const isCL = laneIdx === maxIdx;
+                        mapLayer.append("line")
+                            .attr("x1", p1[0] + nx * offset).attr("y1", p1[1] + ny * offset)
+                            .attr("x2", p2[0] + nx * offset).attr("y2", p2[1] + ny * offset)
+                            .attr("stroke", isCL ? "#f1c40f" : "#ffffff")
+                            .attr("stroke-width", 0.5)
+                            .attr("stroke-dasharray", isCL ? "none" : "7,7");
+                    }
+                }
+            }
+
+            const junctions = xmlDoc.getElementsByTagName("junction");
+            for (let i = 0; i < junctions.length; i++) {
+                const j = junctions[i];
+                if (j.getAttribute("type") === "internal" || j.getAttribute("type") === "dead_end") continue;
+                const shapeStr = j.getAttribute("shape"); if (!shapeStr) continue;
+                const pts = shapeStr.split(" ").map(p => { const c = p.split(","); return [parseFloat(c[0]), -parseFloat(c[1])]; });
+                mapLayer.append("polygon")
+                    .attr("points", pts.map(p => p.join(",")).join(" "))
+                    .attr("fill", "rgba(52,152,219,0.15)").attr("stroke", "#3498db").attr("stroke-width", 1);
+            }
+        }
+    </script>
+</body>
+
+</html>

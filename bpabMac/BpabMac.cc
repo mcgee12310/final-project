@@ -91,7 +91,7 @@ void BpabMac::fromRadioLayer(cPacket *msg, double rssi, double lqi) {
 
     switch (pkt->getBpabType()) {
         case BPAB_RTB: {
-            WEBLOG("EVENT:RCV | Type:RTB | From:" << pkt->getSourceId() << " | To:" << self);
+//            WEBLOG("EVENT:RCV | Type:RTB | From:" << pkt->getSourceId() << " | To:" << self);
 
             if (bpabMacState == BPAB_WAIT_ACK) {
                 cancelTimer(8);
@@ -114,12 +114,12 @@ void BpabMac::fromRadioLayer(cPacket *msg, double rssi, double lqi) {
 
             if (!isValidForwardNode(myX, myY, srcX, srcY,
                                     pkt->getDirection(), rangeR)) {
-                WEBLOG("EVENT:FILTER | Node:" << self << " | Status:WRONG_DIRECTION");
+//                WEBLOG("EVENT:FILTER | Node:" << self << " | Status:WRONG_DIRECTION");
                 return;
             }
 
             if (bpabMacState == BPAB_CONTENDING) {
-                WEBLOG("EVENT:FILTER | Node:" << self << " | Status:ALREADY_CONTENDING");
+//                WEBLOG("EVENT:FILTER | Node:" << self << " | Status:ALREADY_CONTENDING");
                 return;
             }
 
@@ -152,15 +152,16 @@ void BpabMac::fromRadioLayer(cPacket *msg, double rssi, double lqi) {
             // Mốc = thời điểm RTB được gửi + N * slotDuration,
             // chọn N sao cho mốc > now + epsilon
             double boundary = rtbSentTime + slotDuration;
-            while (boundary <= now + 0.0001) {
+            double epsilon = slotDuration * 0.01;
+            while (boundary <= now + epsilon) {
                 boundary += slotDuration;
             }
             slotStartTime = boundary;
 
             double delay = slotStartTime - now;
-            WEBLOG("EVENT:SYNC_SLOT | Node:" << self
-                << " | SlotStart:" << slotStartTime
-                << " | Delay:" << delay);
+//            WEBLOG("EVENT:SYNC_SLOT | Node:" << self
+//                << " | SlotStart:" << slotStartTime
+//                << " | Delay:" << delay);
             setTimer(1, delay);
 
             break;
@@ -168,7 +169,7 @@ void BpabMac::fromRadioLayer(cPacket *msg, double rssi, double lqi) {
 
         case BPAB_CTB: {
             int winnerId = pkt->getSourceId();
-            WEBLOG("EVENT:RCV_CTB | From:" << winnerId << " | To:" << self);
+//            WEBLOG("EVENT:RCV_CTB | From:" << winnerId << " | To:" << self);
 
             if (bpabMacState == BPAB_PRE_CTB) {
                 WEBLOG("EVENT:BACKDOWN | Node:" << self << " | Reason:HEARD_OTHER_CTB");
@@ -182,14 +183,14 @@ void BpabMac::fromRadioLayer(cPacket *msg, double rssi, double lqi) {
                 cancelTimer(4);
                 sendData(winnerId);
             } else {
-                WEBLOG("EVENT:RCV_CTB | Status:IGNORED | Node:" << self);
+//                WEBLOG("EVENT:RCV_CTB | Status:IGNORED | Node:" << self);
             }
             break;
         }
 
         case BPAB_DATA: {
             cPacket *netPkt = pkt->decapsulate();
-            WEBLOG("EVENT:RCV_DATA | Status:UP_TO_APP | Node:" << self);
+//            WEBLOG("EVENT:RCV_DATA | Status:UP_TO_APP | Node:" << self);
             toNetworkLayer(netPkt->dup());
 
             if (pkt->getDestinationId() == self) {
@@ -213,7 +214,7 @@ void BpabMac::fromRadioLayer(cPacket *msg, double rssi, double lqi) {
         }
 
         default:{
-            WEBLOG("nghe duoc gi do");
+//            WEBLOG("nghe duoc gi do");
         }
             break;
     }
@@ -261,7 +262,7 @@ void BpabMac::timerFiredCallback(int timerIndex) {
                 toRadioLayer(createRadioCommand(SET_CS_INTERRUPT_OFF));
                 sendBlackBurst();
             } else {
-                WEBLOG("EVENT:LISTEN_BB | Node:" << self);
+//                WEBLOG("EVENT:LISTEN_BB | Node:" << self);
                 isTransmitting = false;
                 toRadioLayer(createRadioCommand(SET_STATE, RX));
                 toRadioLayer(createRadioCommand(SET_CS_INTERRUPT_ON));
@@ -297,7 +298,10 @@ void BpabMac::timerFiredCallback(int timerIndex) {
             double now = simTime().dbl();
             double delay = nextRoundStart - now;
 
-            if (delay < 0.0001) delay = 0.0001;  // safety margin
+            double epsilon = slotDuration * 0.01;
+
+            if (delay < epsilon)
+                delay = epsilon;
 
             setTimer(1, delay);
             break;
@@ -330,7 +334,7 @@ void BpabMac::timerFiredCallback(int timerIndex) {
 
         case 4: {
             if (bpabMacState != BPAB_WAIT_CTB) break;
-            WEBLOG("EVENT:RADIO_STATE | Node:" << self << " | Mode:RX | Goal:LISTEN_CTB");
+//            WEBLOG("EVENT:RADIO_STATE | Node:" << self << " | Mode:RX | Goal:LISTEN_CTB");
             toRadioLayer(createRadioCommand(SET_STATE, RX));
             break;
         }
@@ -362,7 +366,7 @@ void BpabMac::timerFiredCallback(int timerIndex) {
 
         case 7: {
             if (bpabMacState != BPAB_WAIT_DATA) break;
-            WEBLOG("EVENT:RADIO_STATE | Node:" << self << " | Mode:RX | Goal:WAIT_DATA");
+//            WEBLOG("EVENT:RADIO_STATE | Node:" << self << " | Mode:RX | Goal:WAIT_DATA");
             toRadioLayer(createRadioCommand(SET_STATE, RX));
             break;
         }
@@ -407,8 +411,8 @@ bool BpabMac::isValidForwardNode(double myX, double myY,
     double absDx = fabs(dx);
     double absDy = fabs(dy);
     double halfWidth = widthW / 2.0;
-    WEBLOG("EVENT:DEBUG_FILTER | Node:" << self << " | dx:" << dx << " | dy:" << dy
-                << " | Dir:" << direction);
+//    WEBLOG("EVENT:DEBUG_FILTER | Node:" << self << " | dx:" << dx << " | dy:" << dy
+//                << " | Dir:" << direction);
     switch (direction) {
         case EAST:
             if (dx > minProgress && dx <= rangeR && absDy <= halfWidth) {
@@ -475,14 +479,14 @@ void BpabMac::sendRTB() {
     WEBLOG("EVENT:SEND_RTB | From:" << self << " | To:BROADCAST");
     WEBLOG("EVENT:STATE | Node:" << self << " | State:WAIT_CTB");
 
-    setTimer(4, 0.0001);
-    setTimer(3, slotDuration * (2 * (maxIterations + 5)));
+    setTimer(4, slotDuration * 0.1);
+    setTimer(3, slotDuration * (2 * maxIterations + 20));
 }
 
 void BpabMac::sendBlackBurst() {
     BPABPacket *bb = new BPABPacket("BLACK_BURST", MAC_LAYER_PACKET);
     bb->setBpabType(BPAB_BLACK_BURST);
-    bb->setByteLength(128);
+    bb->setByteLength(1);
     toRadioLayer(bb);
     toRadioLayer(createRadioCommand(SET_STATE, TX));
 }
@@ -529,8 +533,8 @@ void BpabMac::sendCTB() {
 
     bpabMacState = BPAB_WAIT_DATA;
     WEBLOG("EVENT:STATE | Node:" << self << " | State:WAIT_DATA");
-    setTimer(5, slotDuration * 4);
-    setTimer(7, 0.0001);
+    setTimer(5, slotDuration * 10);
+    setTimer(7, slotDuration * 0.1);
 }
 
 // --- Gửi gói DATA tới node thắng contention ---
@@ -545,7 +549,7 @@ void BpabMac::sendData(int winnerId) {
 
     bpabMacState = BPAB_WAIT_ACK;
     WEBLOG("EVENT:STATE | Node:" << self << " | State:WAIT_ACK");
-    setTimer(8, 0.05);
+    setTimer(8, slotDuration * 20);
 }
 
 int BpabMac::calculateTransmissionDirection() {

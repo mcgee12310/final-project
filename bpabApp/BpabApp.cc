@@ -57,7 +57,7 @@ void BpabApp::timerFiredCallback(int timerIndex) {
                     << " | Payload:[" << payload << "]");
 
             packetSequenceNumber++;
-            setTimer(1, sendInterval);
+//            setTimer(1, sendInterval);
             break;
         }
         default:

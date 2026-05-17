@@ -11,8 +11,8 @@ import sys
 SUMO_CONFIG_FILE = "map.sumocfg"  # Đổi tên này cho khớp với file cấu hình của bạn
 CASTALIA_IP = "127.0.0.1"
 CASTALIA_PORT = 9999
-STEP_LENGTH = 0.1  # Bước nhảy thời gian của SUMO (0.1 giây)
-PLAYBACK_SPEED = 1.0 # Tốc độ thời gian thực (Để 2.0 nếu muốn xe chạy nhanh gấp đôi)
+STEP_LENGTH = 1  # Bước nhảy thời gian của SUMO (0.1 giây)
+PLAYBACK_SPEED = 2.0 # Tốc độ thời gian thực (Để 2.0 nếu muốn xe chạy nhanh gấp đôi)
 OFFSET = 0.0
 
 def main():
