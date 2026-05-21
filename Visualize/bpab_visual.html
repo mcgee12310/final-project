@@ -302,6 +302,12 @@
 
     const FADE_WINDOW = 0.5;
     const speedLevels = [0.25, 0.5, 0.75, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+    const SLOW_EVENTS = new Set([
+      "SEND_RTB", "SEND_CTB", "JOIN_BPAB", "CONTENSION_ROUND",
+      "SEND_BB", "DROP_OUT", "WINNER", "SEND_DATA", "RCV_DATA",
+      "ACK_RECEIVED", "ACK_TIMEOUT"
+    ]);
+    const SLOW_WINDOW = 0.8;
 
     // ─── D3 SETUP ────────────────────────────────────────────────────────────────
     const svg = d3.select("#svg");
@@ -795,6 +801,16 @@
       });
     }
 
+    function getAdaptiveSpeed(t, baseSpeed) {
+      // Kiểm tra xem t có nằm trong vùng SLOW_WINDOW sau một sự kiện quan trọng không
+      const inSlowZone = events.some(e =>
+        SLOW_EVENTS.has(e.event) &&
+        e.time <= t &&
+        e.time > t - SLOW_WINDOW
+      );
+      return inSlowZone ? Math.min(baseSpeed, 0.1) : baseSpeed;
+    }
+
     // ─── PLAYBACK ────────────────────────────────────────────────────────────────
     const playPauseBtn = document.getElementById("playPauseBtn");
 
@@ -831,7 +847,8 @@
       if (lastRafTime !== null) {
         // wallTime is in ms; convert to simulated seconds
         const wallDelta = (wallTime - lastRafTime) / 1000;   // real seconds elapsed
-        currentTime += wallDelta * speed;
+        const adaptiveSpeed = getAdaptiveSpeed(currentTime, speed);
+        currentTime += wallDelta * adaptiveSpeed;
       }
       lastRafTime = wallTime;
 
