@@ -60,6 +60,7 @@ class BpabMac: public VirtualMac {
     bool heardBB;
     bool heardCTB;
     bool isTransmitting;
+    std::queue<int> branchQueue;
 
     int retryCount;
     int maxRetries;
@@ -85,6 +86,8 @@ class BpabMac: public VirtualMac {
     void sendBlackBurst();      // Ham phat xung den vat ly
     void endContention(bool won); // Ket thuc tranh chap (Thang/Thua)
     int calculateTransmissionDirection();
+    void processNextBranch();
+    int getIncomingBranch(double sX, double sY, double mX, double mY);
 
  protected:
     // --- Cac ham bat buoc cua Castalia VirtualMac ---

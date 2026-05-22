@@ -49,6 +49,7 @@ enum BPABMessageType {
  *     WEST = 2;
  *     NORTH = 3;
  *     SOUTH = 4;
+ *     INTER = 5;
  * }
  * </pre>
  */
@@ -56,11 +57,12 @@ enum direction {
     EAST = 1,
     WEST = 2,
     NORTH = 3,
-    SOUTH = 4
+    SOUTH = 4,
+    INTER = 5
 };
 
 /**
- * Class generated from <tt>src/node/communication/mac/bpabMac/BPABPacket.msg:36</tt> by nedtool.
+ * Class generated from <tt>src/node/communication/mac/bpabMac/BPABPacket.msg:37</tt> by nedtool.
  * <pre>
  * packet BPABPacket extends MacPacket
  * {

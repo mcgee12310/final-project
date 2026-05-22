@@ -31,6 +31,7 @@ enum direction {
     WEST = 2;
     NORTH = 3;
     SOUTH = 4;
+    INTER = 5;
 };
 
 packet BPABPacket extends MacPacket {

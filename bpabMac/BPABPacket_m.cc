@@ -69,6 +69,7 @@ EXECUTE_ON_STARTUP(
     e->insert(WEST, "WEST");
     e->insert(NORTH, "NORTH");
     e->insert(SOUTH, "SOUTH");
+    e->insert(INTER, "INTER");
 );
 
 Register_Class(BPABPacket);

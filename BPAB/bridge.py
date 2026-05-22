@@ -11,31 +11,24 @@ import sys
 SUMO_CONFIG_FILE = "map.sumocfg"  # Đổi tên này cho khớp với file cấu hình của bạn
 CASTALIA_IP = "127.0.0.1"
 CASTALIA_PORT = 9999
-STEP_LENGTH = 1  # Bước nhảy thời gian của SUMO (0.1 giây)
-PLAYBACK_SPEED = 2.0 # Tốc độ thời gian thực (Để 2.0 nếu muốn xe chạy nhanh gấp đôi)
-OFFSET = 0.0
+STEP_LENGTH = 1  # Bước nhảy thời gian của SUMO (1 giây)
+PLAYBACK_SPEED = 2.0 # Tốc độ thời gian thực
 
 def main():
     # 1. KẾT NỐI VỚI CASTALIA (Cổng 9999)
     try:
-        # print(f"⏳ Đang tìm kiếm Castalia tại {CASTALIA_IP}:{CASTALIA_PORT}...")
         castalia_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         castalia_sock.connect((CASTALIA_IP, CASTALIA_PORT))
-        # print("🟢 Đã cắm dây mạng thành công vào Castalia!")
     except ConnectionRefusedError:
-        # print("🔴 LỖI: Không tìm thấy Castalia. Hãy gõ lệnh chạy Castalia C++ trước khi bật file Python này!")
         sys.exit(1)
 
     # 2. KHỞI ĐỘNG SUMO
-    # Dùng "sumo" thay vì "sumo-gui" để chạy ngầm hoàn toàn (Headless Mode)
+    # Dùng "sumo" thay vì "sumo-gui" để chạy ngầm hoàn toàn
     sumoCmd = ["sumo", "-c", SUMO_CONFIG_FILE, "--step-length", str(STEP_LENGTH)]
     
-    # print("⏳ Đang khởi động lõi mô phỏng SUMO...")
     try:
         traci.start(sumoCmd)
-        # print("🟢 SUMO đã chạy ngầm! Đang bắt đầu truyền tọa độ...\n")
     except Exception as e:
-        # print(f"🔴 LỖI khi bật SUMO: {e}")
         castalia_sock.close()
         sys.exit(1)
 
@@ -50,30 +43,38 @@ def main():
             
             vehicle_ids = traci.vehicle.getIDList()
             for vid in vehicle_ids:
+                # [ĐÃ SỬA] Dùng đúng biến vid 
+                road_id = traci.vehicle.getRoadID(vid)
                 x_sumo, y_sumo = traci.vehicle.getPosition(vid)
                 node_id = int(''.join(filter(str.isdigit, vid)))
                 
-                # CỘNG OFFSET ĐỂ KHỬ SỐ ÂM CHO CASTALIA
-                x_castalia = x_sumo + OFFSET
-                y_castalia = y_sumo + OFFSET
+                # Cờ nhận diện xe đang ở trong giao lộ (SUMO internal lane)
+                is_inter = 1 if road_id.startswith(":") else 0
                 
-                cmd = "SET_POS|TIME:{:.2f}|NODE:{}|X:{:.2f}|Y:{:.2f}\n".format(current_sumo_time, node_id, x_castalia, y_castalia)
+                # KHÔNG DÙNG OFFSET: Lấy tọa độ gốc tuyệt đối của SUMO
+                cmd = "SET_POS|TIME:{:.2f}|NODE:{}|X:{:.2f}|Y:{:.2f}|INTER:{}\n".format(
+                    current_sumo_time, 
+                    node_id, 
+                    x_sumo,   # (hoặc x_castalia nếu bạn có dùng biến này)
+                    y_sumo,   # (hoặc y_castalia nếu bạn có dùng biến này)
+                    is_inter
+                )
+
+                if is_inter == 1:
+                    print("[{:.2f}] PYTHON DEBUG: Node {} đang ở giao lộ (INTER:1)".format(current_sumo_time, node_id))
+
                 castalia_sock.sendall(cmd.encode('utf-8'))
             
             time.sleep(STEP_LENGTH / PLAYBACK_SPEED)
 
     except KeyboardInterrupt:
-        # print("\n🛑 Đã dừng đồng bộ (Ctrl+C).")
         pass
     except Exception as e:
-        # print(f"\n🔴 LỖI LÕI: {e}")
         pass
     finally:
         # 4. ĐÓNG KẾT NỐI AN TOÀN
-        # print("🧹 Đang dọn dẹp hệ thống...")
         traci.close()
         castalia_sock.close()
-        # print("✅ Hoàn tất!")
 
 if __name__ == "__main__":
     main()

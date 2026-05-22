@@ -19,8 +19,11 @@ class BpabTraCIManager : public cSimpleModule {
   public:
     // Ä�áº·t public static Ä‘á»ƒ BpabMac cÃ³ thá»ƒ truy cáº­p vÃ  gá»­i Log (WEBLOG)
     static int tcpClientSocket;
-    static void writeToUnifiedLog(double time, int nodeId, std::string event, std::string data);
+    static std::map<int, bool> nodeIntersectionStatus;
     static BpabTraCIManager* instance;
+
+    static void writeToUnifiedLog(double time, int nodeId, std::string event, std::string data);
+    static bool isNodeAtIntersection(int nodeId);
     static void forceInstantTraCISync();
 
   protected:

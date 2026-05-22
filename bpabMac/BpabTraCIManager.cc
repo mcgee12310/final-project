@@ -8,6 +8,7 @@ Define_Module(BpabTraCIManager);
 int BpabTraCIManager::tcpClientSocket = -1;
 std::ofstream BpabTraCIManager::unifiedLog;
 BpabTraCIManager* BpabTraCIManager::instance = nullptr; // Con trỏ static lưu instance duy nhất
+std::map<int, bool> BpabTraCIManager::nodeIntersectionStatus;
 
 BpabTraCIManager::~BpabTraCIManager() {
     cancelAndDelete(pollTimer);
@@ -106,6 +107,7 @@ void BpabTraCIManager::handleMessage(cMessage *msg) {
         double sumoTime = msg->par("sumoTime").doubleValue();
         double x = msg->par("x").doubleValue();
         double y = msg->par("y").doubleValue();
+        int isInter = msg->par("isInter").longValue();
 
         char path[100];
         sprintf(path, "SN.node[%d].MobilityManager", nodeId);
@@ -115,6 +117,7 @@ void BpabTraCIManager::handleMessage(cMessage *msg) {
             VirtualMobilityManager *mob = check_and_cast<VirtualMobilityManager*>(mobModule);
             cContextSwitcher tmp(mobModule);
             mob->setLocation(x, y, 0); // Ép di chuyển!
+            nodeIntersectionStatus[nodeId] = (isInter == 1);
 
             if (unifiedLog.is_open()) {
                 // ĐÓNG GÓI LẠI GIỐNG HỆT ĐỊNH DẠNG CỦA MAC_EVENT
@@ -124,12 +127,8 @@ void BpabTraCIManager::handleMessage(cMessage *msg) {
                 // Đổi nhãn từ "POS" thành "MAC_EVENT" để đồng nhất 1 luồng
                 writeToUnifiedLog(sumoTime, nodeId, "MAC_EVENT", _ss.str());
             }
-
-            // Gửi lên Web UI (Bây giờ Web sẽ nhận được tọa độ KHỚP TUYỆT ĐỐI với thời gian truyền tin)
-            // if (tcpClientSocket != -1) { ... }
         }
 
-        // Xóa hộp đi để không bị tràn RAM!
         delete msg;
     }
     // NẾU LÀ SỰ KIỆN ĐỌC TCP định kỳ
@@ -213,6 +212,12 @@ void BpabTraCIManager::processCommand(const std::string& cmd) {
         size_t xPos = cmd.find("X:");
         size_t yPos = cmd.find("Y:");
 
+        int isInter = 0;
+        size_t interPos = cmd.find("INTER:");
+        if (interPos != std::string::npos) {
+            sscanf(cmd.c_str() + interPos, "INTER:%d", &isInter);
+        }
+
         if (timePos != std::string::npos && nodePos != std::string::npos &&
             xPos != std::string::npos && yPos != std::string::npos) {
             try {
@@ -220,6 +225,12 @@ void BpabTraCIManager::processCommand(const std::string& cmd) {
                 int nodeId = std::stoi(cmd.substr(nodePos + 5, xPos - (nodePos + 5) - 1));
                 double x = std::stod(cmd.substr(xPos + 2, yPos - (xPos + 2) - 1));
                 double y = std::stod(cmd.substr(yPos + 2));
+
+                if (isInter == 1) {
+                    std::ostringstream ss;
+                    ss << "EVENT:TRACI_PARSE_INTER | Node:" << nodeId << " | ParsedValue:" << isInter;
+                    writeToUnifiedLog(simTime().dbl(), nodeId, "TRACI_DEBUG", ss.str());
+                }
 
                 // ---- CẢI TIẾN LẬP LỊCH TỐI ƯU ----
                 // Nếu mốc tọa độ này thuộc về hiện tại hoặc quá khứ, ÁP DỤNG TRỰC TIẾP NGAY!
@@ -232,6 +243,7 @@ void BpabTraCIManager::processCommand(const std::string& cmd) {
                         VirtualMobilityManager *mob = check_and_cast<VirtualMobilityManager*>(mobModule);
                         cContextSwitcher tmp(mobModule);
                         mob->setLocation(x, y, 0); // Ghi đè trực tiếp tọa độ thực tế
+                        nodeIntersectionStatus[nodeId] = (isInter == 1);
 
                         if (unifiedLog.is_open()) {
                             std::ostringstream _ss;
@@ -246,6 +258,7 @@ void BpabTraCIManager::processCommand(const std::string& cmd) {
                     moveMsg->addPar("sumoTime").setDoubleValue(sumoTime);
                     moveMsg->addPar("x").setDoubleValue(x);
                     moveMsg->addPar("y").setDoubleValue(y);
+                    moveMsg->addPar("isInter").setLongValue(isInter);
 
                     scheduleAt(sumoTime, moveMsg);
                 }
@@ -256,6 +269,13 @@ void BpabTraCIManager::processCommand(const std::string& cmd) {
             }
         }
     }
+}
+
+bool BpabTraCIManager::isNodeAtIntersection(int nodeId) {
+    if (nodeIntersectionStatus.find(nodeId) != nodeIntersectionStatus.end()) {
+        return nodeIntersectionStatus[nodeId];
+    }
+    return false; // Mặc định nếu chưa có dữ liệu là không ở giao lộ
 }
 
 void BpabTraCIManager::finish() {
