@@ -221,10 +221,14 @@ void BpabMac::fromRadioLayer(cPacket *msg, double rssi, double lqi) {
                 WEBLOG("EVENT:STATE | Node:" << self << " | State:IDLE");
             }
             else if (bpabMacState == BPAB_WAIT_CTB && packetToBroadcast) {
-                retryCount = 0;
-                cancelTimer(3);
-                cancelTimer(4);
-                sendData(winnerId);
+                if (pkt->getDestinationId() == self) {
+                    retryCount = 0;
+                    cancelTimer(3);
+                    cancelTimer(4);
+                    sendData(winnerId);
+                } else {
+//                    WEBLOG("EVENT:IGNORE_CTB | Node:" << self << " | Reason:NOT_FOR_ME");
+                }
             }
             break;
         }
@@ -259,6 +263,7 @@ void BpabMac::fromRadioLayer(cPacket *msg, double rssi, double lqi) {
 
                     processNextBranch();
                 } else {
+                    transmissionDirection = this->srcDirection;
                     sendRTB();
                 }
             } else {
@@ -590,6 +595,7 @@ void BpabMac::sendCTB() {
     BPABPacket *ctb = new BPABPacket("BPAB_CTB", MAC_LAYER_PACKET);
     ctb->setBpabType(BPAB_CTB);
     ctb->setSourceId(self);
+    ctb->setDestinationId(this->srcId);
     ctb->setByteLength(1);
 
     toRadioLayer(ctb);

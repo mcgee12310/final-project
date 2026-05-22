@@ -28,12 +28,15 @@ Define_Module(BpabApp);
 
 void BpabApp::startup() {
     sendInterval = par("sendInterval");
-    isNode0Sender = par("isNode0Sender");
+
+    // Đổi tên biến để tổng quát hóa
+    bool isSender = par("isSender");
     packetSequenceNumber = 0;
 
-    if (isNode0Sender && self == 0) {
+    // Bỏ điều kiện "self == 0", chỉ cần check isSender là đủ
+    if (isSender) {
         setTimer(1, sendInterval);
-        APP_LOG("EVENT:APP_START | Node:0 | Status:SENDER_READY");
+        APP_LOG("EVENT:APP_START | Node:" << self << " | Status:SENDER_READY");
     } else {
         // APP_LOG("EVENT:APP_START | Node:" << self << " | Status:LISTENER");
     }

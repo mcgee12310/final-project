@@ -24,7 +24,7 @@ simple BpabApp like node.application.iApplication {
 		int constantDataPayload = default (12);	// in bytes
 		
         // --- Các tham số tự định nghĩa ---
-        bool isNode0Sender = default(true);       // Cho phép Node 0 tự động gửi
+        bool isSender = default(false);
         double sendInterval @unit(s) = default(1s); // Tần suất gửi gói tin
         
         @class(BpabApp);
