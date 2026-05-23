@@ -360,11 +360,11 @@
       <div id="slowDot"></div>
       <span id="slowReason">auto-slow</span>
     </div>
-    
+
     <label style="margin-left: 10px;">Speed:</label>
     <input type="range" id="speedInput" min="0" max="9" value="7" step="1" style="width: 80px;">
     <span id="speedLabel" style="min-width: 35px; font-weight: bold;">1x</span>
-    
+
     <input id="frameSlider" type="range" min="0" max="100" value="0" step="0.01" style="margin-left: 15px;">
     <div id="timeLabel" style="min-width:80px;font-weight:bold;color:#2980b9;">0.0000 s</div>
   </div>
@@ -447,7 +447,7 @@
 
     // ─── PARSER ──────────────────────────────────────────────────────────────────
     document.getElementById("btnParse").addEventListener("click", () => {
-      const mapUrl = "map.net.xml";
+      const mapUrl = "../BPAB/intersection.net.xml";
       fetch(mapUrl)
         .then(r => { if (!r.ok) throw new Error("Không tìm thấy " + mapUrl); return r.text(); })
         .then(xmlText => drawSumoMap(xmlText))
@@ -846,7 +846,7 @@
       const baseSpeed = speedLevels[parseFloat(document.getElementById("speedInput").value)];
       const enabled = document.getElementById("sl_enable").checked;
       const slowFactor = getSlowFactor();
-      
+
       const effectiveSpeed = (enabled && isContending) ? baseSpeed / slowFactor : baseSpeed;
 
       updateSlowIndicator();
@@ -859,15 +859,15 @@
         // Nếu hiện đang không ở trạng thái slow-mo, nhưng một sự kiện trigger làm
         // bùng nổ tranh chấp sắp xảy ra trong bước nhảy tiếp theo -> Dừng cứng ở sự kiện đó
         if (enabled && !isContending) {
-           const triggerEvent = events.find(e =>
-              e.time > currentTime &&
-              e.time <= proposedNextTime &&
-              e.event === "STATE" &&
-              CONTENDING_STATES.has(e.state)
-           );
-           if (triggerEvent) {
-              proposedNextTime = triggerEvent.time; // Snap chính xác thời gian bắt đầu contention
-           }
+          const triggerEvent = events.find(e =>
+            e.time > currentTime &&
+            e.time <= proposedNextTime &&
+            e.event === "STATE" &&
+            CONTENDING_STATES.has(e.state)
+          );
+          if (triggerEvent) {
+            proposedNextTime = triggerEvent.time; // Snap chính xác thời gian bắt đầu contention
+          }
         }
 
         currentTime = proposedNextTime;

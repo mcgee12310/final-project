@@ -61,6 +61,7 @@ class BpabMac: public VirtualMac {
     bool heardCTB;
     bool isTransmitting;
     std::queue<int> branchQueue;
+    int lastDataDestId;
 
     int retryCount;
     int maxRetries;

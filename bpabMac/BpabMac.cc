@@ -92,20 +92,22 @@ void BpabMac::fromRadioLayer(cPacket *msg, double rssi, double lqi) {
     switch (pkt->getBpabType()) {
         case BPAB_RTB: {
             if (bpabMacState == BPAB_WAIT_ACK) {
-                cancelTimer(8);
-                bpabMacState = BPAB_IDLE;
-
-                WEBLOG("EVENT:ACK_RECEIVED | Node:" << self << " | Status:SUCCESS");
-
-                if (BpabTraCIManager::isNodeAtIntersection(self) && !branchQueue.empty()) {
-                    processNextBranch();
-                } else {
+                if (pkt->getSourceId() == lastDataDestId) {
+                    cancelTimer(8);
                     bpabMacState = BPAB_IDLE;
-                    if (packetToBroadcast) {
-                        delete packetToBroadcast;
-                        packetToBroadcast = NULL;
+                    WEBLOG("EVENT:ACK_RECEIVED | Node:" << self << " | Status:SUCCESS_IMPLICIT");
+
+                    if (BpabTraCIManager::isNodeAtIntersection(self) && !branchQueue.empty()) {
+                        processNextBranch();
+                    } else {
+                        if (packetToBroadcast) {
+                            delete packetToBroadcast;
+                            packetToBroadcast = NULL;
+                        }
+                        WEBLOG("EVENT:STATE | Node:" << self << " | State:IDLE");
                     }
-                    WEBLOG("EVENT:STATE | Node:" << self << " | State:IDLE");
+                } else {
+                    WEBLOG("EVENT:IGNORE_RTB | Node:" << self << " | Reason:WAITING_ACK_FROM_" << lastDataDestId);
                 }
                 return;
             }
@@ -115,53 +117,52 @@ void BpabMac::fromRadioLayer(cPacket *msg, double rssi, double lqi) {
             double srcX = pkt->getSourceX();
             double srcY = pkt->getSourceY();
 
-            if (!isValidForwardNode(myX, myY, srcX, srcY,
-                                    pkt->getDirection(), rangeR)) {
-                return;
-            }
-
-            if (bpabMacState == BPAB_CONTENDING) {
+            if (!isValidForwardNode(myX, myY, srcX, srcY, pkt->getDirection(), rangeR)) {
                 return;
             }
 
             bool isAtInter = BpabTraCIManager::isNodeAtIntersection(self);
-            WEBLOG("EVENT:CHECK_INTER_STATE | Node:" << self
-                   << " | isNodeAtIntersection_Result:" << (isAtInter ? "TRUE" : "FALSE"));
+//            WEBLOG("EVENT:CHECK_INTER_STATE | Node:" << self
+//                     << " | isNodeAtIntersection_Result:" << (isAtInter ? "TRUE" : "FALSE"));
 
-            if (isAtInter) {
-                // -------------------------------------------------------
-                // FAST TRACK: phát CTB trước cả khi xe thường gửi BB
-                // Không đi qua endContention() để tránh dùng window [0,3*slot]
-                // -------------------------------------------------------
-                WEBLOG("EVENT:INTERSECTION_FAST_TRACK | Node:" << self
-                       << " | Action:PREEMPT_BEFORE_BB");
+              if (isAtInter) {
+                  // -------------------------------------------------------
+                  // FAST TRACK: phát CTB trước cả khi xe thường gửi BB
+                  // Không đi qua endContention() để tránh dùng window [0,3*slot]
+                  // -------------------------------------------------------
+                  WEBLOG("EVENT:INTERSECTION_FAST_TRACK | Node:" << self
+                         << " | Action:PREEMPT_BEFORE_BB");
 
-                // Lưu thông tin nguồn
-                srcId        = pkt->getSourceId();
-                this->srcX   = srcX;
-                this->srcY   = srcY;
+                  // Lưu thông tin nguồn
+                  srcId        = pkt->getSourceId();
+                  this->srcX   = srcX;
+                  this->srcY   = srcY;
 
-                // Hủy mọi timer contention còn sót (phòng hờ)
-                cancelTimer(1);
-                cancelTimer(2);
-                toRadioLayer(createRadioCommand(SET_CS_INTERRUPT_OFF));
+                  // Hủy mọi timer contention còn sót (phòng hờ)
+                  cancelTimer(1);
+                  cancelTimer(2);
+                  toRadioLayer(createRadioCommand(SET_CS_INTERRUPT_OFF));
 
-                // Chuyển thẳng sang PRE_CTB, bỏ hoàn toàn binary partition
-                heardCTB     = false;
-                bpabMacState = BPAB_PRE_CTB;
-                WEBLOG("EVENT:STATE | Node:" << self << " | State:PRE_CTB");
+                  // Chuyển thẳng sang PRE_CTB, bỏ hoàn toàn binary partition
+                  heardCTB     = false;
+                  bpabMacState = BPAB_PRE_CTB;
+                  WEBLOG("EVENT:STATE | Node:" << self << " | State:PRE_CTB");
 
-                // Backoff [0, 0.3*slot]: đảm bảo phát CTB TRƯỚC Round 0 của xe thường
-                // Window xe thường bắt đầu ở slotDuration (Round 0),
-                // nên 0.3*slot không bao giờ chồng lên đó.
-                // Nếu có nhiều node giao lộ cùng nhận RTB, heardCTB trong case 6
-                // sẽ tự phân xử — node nào roll số nhỏ hơn thắng.
-                double interBackoff = uniform(0.0, slotDuration * 0.3);
-                WEBLOG("EVENT:WINNER | Node:" << self
-                       << " | Backoff:" << interBackoff
-                       << " | Type:INTERSECTION_PREEMPT");
-                setTimer(6, interBackoff);
-                break;
+                  // Backoff [0, 0.3*slot]: đảm bảo phát CTB TRƯỚC Round 0 của xe thường
+                  // Window xe thường bắt đầu ở slotDuration (Round 0),
+                  // nên 0.3*slot không bao giờ chồng lên đó.
+                  // Nếu có nhiều node giao lộ cùng nhận RTB, heardCTB trong case 6
+                  // sẽ tự phân xử — node nào roll số nhỏ hơn thắng.
+                  double interBackoff = uniform(0.0, slotDuration * 0.3);
+                  WEBLOG("EVENT:WINNER | Node:" << self
+                         << " | Backoff:" << interBackoff
+                         << " | Type:INTERSECTION_PREEMPT");
+                  setTimer(6, interBackoff);
+                  break;
+              }
+
+            if (bpabMacState == BPAB_CONTENDING) {
+                return;
             }
 
             // --- Xe thường: tham gia binary contention bình thường ---
@@ -235,7 +236,7 @@ void BpabMac::fromRadioLayer(cPacket *msg, double rssi, double lqi) {
 
         case BPAB_DATA: {
             cPacket *netPkt = pkt->decapsulate();
-            toNetworkLayer(netPkt->dup());
+//            toNetworkLayer(netPkt->dup());
 
             if (pkt->getDestinationId() == self) {
                 retryCount = 0;
@@ -369,23 +370,30 @@ void BpabMac::timerFiredCallback(int timerIndex) {
         }
 
         case 3: {
+            // Nếu không phải đang đợi CTB thì bỏ qua
             if (bpabMacState != BPAB_WAIT_CTB) break;
 
             if (packetToBroadcast && retryCount < maxRetries) {
-                // Logic retry giữ nguyên
+                // Tăng biến đếm và thử phát lại RTB
+                retryCount++;
+                WEBLOG("EVENT:RETRY_RTB | Node:" << self << " | Retry:" << retryCount);
+                sendRTB();
             } else {
-                WEBLOG("EVENT:DROP_PKT | Node:" << self << " | Reason:MAX_RETRY_REACHED");
+                // Đã hết số lần thử -> Nhánh này không có ai
+                WEBLOG("EVENT:DROP_PKT | Node:" << self << " | Reason:EMPTY_BRANCH_TIMEOUT");
 
+                // Nếu đang ở giao lộ và hàng đợi nhánh vẫn còn
                 if (BpabTraCIManager::isNodeAtIntersection(self) && !branchQueue.empty()) {
-                    processNextBranch();
+                    processNextBranch(); // BẮT BUỘC PHẢI CÓ ĐỂ XOAY SANG NHÁNH BẮC/NAM
                 } else {
+                    // Nếu là đường thẳng hoặc đã quét hết ngã tư
                     if (packetToBroadcast) {
                         delete packetToBroadcast;
                         packetToBroadcast = NULL;
                     }
                     retryCount = 0;
                     bpabMacState = BPAB_IDLE;
-                    WEBLOG("EVENT:STATE | Node:" << self << " | State:IDLE | Reason:DROP_PKT");
+                    WEBLOG("EVENT:STATE | Node:" << self << " | State:IDLE");
                 }
             }
             break;
@@ -610,6 +618,7 @@ void BpabMac::sendCTB() {
 // --- Gửi gói DATA tới node thắng contention ---
 void BpabMac::sendData(int winnerId) {
     WEBLOG("EVENT:SEND_DATA | From:" << self << " | To:" << winnerId);
+    lastDataDestId = winnerId;
     packetToBroadcast->setDestinationId(winnerId);
     packetToBroadcast->setBpabType(BPAB_DATA);
 
