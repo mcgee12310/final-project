@@ -67,6 +67,7 @@ enum direction {
  * packet BPABPacket extends MacPacket
  * {
  *     int bpabType @enum(BPABMessageType);
+ *     int incomingDir @enum(direction);
  *     int direction @enum(direction);
  *     double rtbSentTime;
  * 
@@ -90,6 +91,7 @@ class BPABPacket : public ::MacPacket
 {
   protected:
     int bpabType_var;
+    int incomingDir_var;
     int direction_var;
     double rtbSentTime_var;
     int sourceId_var;
@@ -122,6 +124,8 @@ class BPABPacket : public ::MacPacket
     // field getter/setter methods
     virtual int getBpabType() const;
     virtual void setBpabType(int bpabType);
+    virtual int getIncomingDir() const;
+    virtual void setIncomingDir(int incomingDir);
     virtual int getDirection() const;
     virtual void setDirection(int direction);
     virtual double getRtbSentTime() const;

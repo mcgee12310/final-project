@@ -4,77 +4,141 @@ import traci
 import socket
 import time
 import sys
+import math
 
 # ==========================================
-# CẤU HÌNH HỆ THỐNG
+# CAU HINH HE THONG
 # ==========================================
-SUMO_CONFIG_FILE = "intersection.sumocfg"  # Đổi tên này cho khớp với file cấu hình của bạn
+SUMO_CONFIG_FILE = "intersection.sumocfg"
+NET_FILE = "intersection.net.xml"
 CASTALIA_IP = "127.0.0.1"
 CASTALIA_PORT = 9999
-STEP_LENGTH = 1  # Bước nhảy thời gian của SUMO (1 giây)
-PLAYBACK_SPEED = 2.0 # Tốc độ thời gian thực
+STEP_LENGTH = 1
+PLAYBACK_SPEED = 2.0
+INTERSECTION_THRESHOLD = 30.0
+
+def load_intersections(net_file):
+    """Doc toa do cac giao lo tu file .net.xml bang cach doc XML truc tiep"""
+    try:
+        import xml.etree.ElementTree as ET
+        tree = ET.parse(net_file)
+        root = tree.getroot()
+        coords = []
+        for junction in root.findall('junction'):
+            jid = junction.get('id', '')
+            jtype = junction.get('type', '')
+            # Bo qua junction noi bo va dead-end
+            if jid.startswith(':'):
+                continue
+            if jtype in ('internal', 'dead_end'):
+                continue
+            try:
+                x = float(junction.get('x', '0'))
+                y = float(junction.get('y', '0'))
+                coords.append((x, y))
+                print("  Giao lo [%s] tai (%.1f, %.1f)" % (jid, x, y))
+            except ValueError:
+                continue
+        print("Da tai xong %d giao lo tu map." % len(coords))
+        return coords
+    except Exception, e:
+        print("Loi doc file map: %s" % str(e))
+        return []
+
+def is_near_intersection(x, y, intersections, threshold):
+    """Kiem tra xe co gan giao lo nao khong"""
+    for (ix, iy) in intersections:
+        dist = math.sqrt((x - ix)**2 + (y - iy)**2)
+        if dist < threshold:
+            return True
+    return False
+
+def is_inside_intersection_by_road(vid):
+    """
+    Kiem tra xe co dang nam trong junction internal lane hay khong
+    SUMO quy uoc lane/edge noi bo giao lo bat dau bang ':'
+    """
+    try:
+        road_id = traci.vehicle.getRoadID(vid)
+
+        # Xe dang o internal edge cua junction
+        if road_id.startswith(":"):
+            return True
+
+        return False
+
+    except Exception:
+        return False
 
 def main():
-    # 1. KẾT NỐI VỚI CASTALIA (Cổng 9999)
+    # 1. Tai du lieu giao lo truoc khi chay
+    intersections = load_intersections(NET_FILE)
+
+    # 2. KET NOI VOI CASTALIA
+    # Python 2.6: dung try/except rieng, khong dung "except X as e" cho 2.5 compat
     try:
         castalia_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         castalia_sock.connect((CASTALIA_IP, CASTALIA_PORT))
-    except ConnectionRefusedError:
+    except socket.error:
+        print("Khong ket noi duoc Castalia!")
         sys.exit(1)
 
-    # 2. KHỞI ĐỘNG SUMO
-    # Dùng "sumo" thay vì "sumo-gui" để chạy ngầm hoàn toàn
+    # 3. KHOI DONG SUMO
     sumoCmd = ["sumo", "-c", SUMO_CONFIG_FILE, "--step-length", str(STEP_LENGTH)]
-    
     try:
         traci.start(sumoCmd)
-    except Exception as e:
+    except Exception, e:                      # Python 2.6 syntax (khong dung "as")
+        print("Loi khoi dong SUMO: %s" % str(e))
         castalia_sock.close()
         sys.exit(1)
 
-    # 3. VÒNG LẶP THỜI GIAN THỰC (ĐỒNG BỘ TỌA ĐỘ)
+    # 4. VONG LAP DONG BO
     try:
-        # Chạy chừng nào vẫn còn xe trên bản đồ
         while traci.simulation.getMinExpectedNumber() > 0:
             traci.simulationStep()
-            
-            # Lấy thời gian hiện tại của SUMO (Master Clock)
             current_sumo_time = traci.simulation.getTime()
-            
+
             vehicle_ids = traci.vehicle.getIDList()
             for vid in vehicle_ids:
-                # [ĐÃ SỬA] Dùng đúng biến vid 
-                road_id = traci.vehicle.getRoadID(vid)
                 x_sumo, y_sumo = traci.vehicle.getPosition(vid)
-                node_id = int(''.join(filter(str.isdigit, vid)))
-                
-                # Cờ nhận diện xe đang ở trong giao lộ (SUMO internal lane)
-                is_inter = 1 if road_id.startswith(":") else 0
-                
-                # KHÔNG DÙNG OFFSET: Lấy tọa độ gốc tuyệt đối của SUMO
-                cmd = "SET_POS|TIME:{:.2f}|NODE:{}|X:{:.2f}|Y:{:.2f}|INTER:{}\n".format(
-                    current_sumo_time, 
-                    node_id, 
-                    x_sumo,   # (hoặc x_castalia nếu bạn có dùng biến này)
-                    y_sumo,   # (hoặc y_castalia nếu bạn có dùng biến này)
-                    is_inter
+
+                # Python 2.6: filter() tra ve list, khong phai iterator -> dung truc tiep
+                digits = filter(str.isdigit, vid)
+                node_id = int(''.join(digits))
+
+                # is_near = is_near_intersection(x_sumo, y_sumo,
+                #                                intersections,
+                #                                INTERSECTION_THRESHOLD)
+                # is_inter = 1 if is_near else 0
+
+                is_inter = 1 if is_inside_intersection_by_road(vid) else 0
+
+                # Python 2.6: dung % formatting thay vi f-string
+                cmd = "SET_POS|TIME:%.2f|NODE:%d|X:%.2f|Y:%.2f|INTER:%d\n" % (
+                    current_sumo_time, node_id, x_sumo, y_sumo, is_inter
                 )
 
                 if is_inter == 1:
-                    print("[{:.2f}] PYTHON DEBUG: Node {} đang ở giao lộ (INTER:1)".format(current_sumo_time, node_id))
+                    print("[%.1f] Node %d gan giao lo" % (current_sumo_time, node_id))
 
-                castalia_sock.sendall(cmd.encode('utf-8'))
-            
-            time.sleep(STEP_LENGTH / PLAYBACK_SPEED)
+                castalia_sock.sendall(cmd)     # Python 2.6: str, khong can .encode()
+
+            time.sleep(STEP_LENGTH / float(PLAYBACK_SPEED))
 
     except KeyboardInterrupt:
         pass
-    except Exception as e:
-        pass
+
+    # Python 2.6: finally phai tach khoi try/except, dung try/finally rieng
+    # hoac viet lai thanh try/except/finally (hop le tu 2.5+)
     finally:
-        # 4. ĐÓNG KẾT NỐI AN TOÀN
-        traci.close()
-        castalia_sock.close()
+        try:
+            traci.close()
+        except Exception:
+            pass
+        try:
+            castalia_sock.close()
+        except Exception:
+            pass
 
 if __name__ == "__main__":
     main()

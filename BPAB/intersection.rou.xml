@@ -271,7 +271,7 @@
     <vehicle id="100" depart="0.00">
         <route edges="E5 E6"/>
     </vehicle>
-    <vehicle id="101" depart="0.00">
+    <!-- <vehicle id="101" depart="0.00">
         <route edges="E5 -E3 -E2"/>
     </vehicle>
     <vehicle id="102" depart="0.00">
@@ -486,5 +486,5 @@
     </vehicle>
     <vehicle id="199" depart="0.00">
         <route edges="E2 E3 -E5"/>
-    </vehicle>
+    </vehicle> -->
 </routes>

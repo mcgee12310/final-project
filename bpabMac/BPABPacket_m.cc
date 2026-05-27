@@ -77,6 +77,7 @@ Register_Class(BPABPacket);
 BPABPacket::BPABPacket(const char *name, int kind) : ::MacPacket(name,kind)
 {
     this->bpabType_var = 0;
+    this->incomingDir_var = 0;
     this->direction_var = 0;
     this->rtbSentTime_var = 0;
     this->sourceId_var = 0;
@@ -111,6 +112,7 @@ BPABPacket& BPABPacket::operator=(const BPABPacket& other)
 void BPABPacket::copy(const BPABPacket& other)
 {
     this->bpabType_var = other.bpabType_var;
+    this->incomingDir_var = other.incomingDir_var;
     this->direction_var = other.direction_var;
     this->rtbSentTime_var = other.rtbSentTime_var;
     this->sourceId_var = other.sourceId_var;
@@ -129,6 +131,7 @@ void BPABPacket::parsimPack(cCommBuffer *b)
 {
     ::MacPacket::parsimPack(b);
     doPacking(b,this->bpabType_var);
+    doPacking(b,this->incomingDir_var);
     doPacking(b,this->direction_var);
     doPacking(b,this->rtbSentTime_var);
     doPacking(b,this->sourceId_var);
@@ -147,6 +150,7 @@ void BPABPacket::parsimUnpack(cCommBuffer *b)
 {
     ::MacPacket::parsimUnpack(b);
     doUnpacking(b,this->bpabType_var);
+    doUnpacking(b,this->incomingDir_var);
     doUnpacking(b,this->direction_var);
     doUnpacking(b,this->rtbSentTime_var);
     doUnpacking(b,this->sourceId_var);
@@ -169,6 +173,16 @@ int BPABPacket::getBpabType() const
 void BPABPacket::setBpabType(int bpabType)
 {
     this->bpabType_var = bpabType;
+}
+
+int BPABPacket::getIncomingDir() const
+{
+    return incomingDir_var;
+}
+
+void BPABPacket::setIncomingDir(int incomingDir)
+{
+    this->incomingDir_var = incomingDir;
 }
 
 int BPABPacket::getDirection() const
@@ -338,7 +352,7 @@ const char *BPABPacketDescriptor::getProperty(const char *propertyname) const
 int BPABPacketDescriptor::getFieldCount(void *object) const
 {
     cClassDescriptor *basedesc = getBaseClassDescriptor();
-    return basedesc ? 13+basedesc->getFieldCount(object) : 13;
+    return basedesc ? 14+basedesc->getFieldCount(object) : 14;
 }
 
 unsigned int BPABPacketDescriptor::getFieldTypeFlags(void *object, int field) const
@@ -363,8 +377,9 @@ unsigned int BPABPacketDescriptor::getFieldTypeFlags(void *object, int field) co
         FD_ISEDITABLE,
         FD_ISEDITABLE,
         FD_ISEDITABLE,
+        FD_ISEDITABLE,
     };
-    return (field>=0 && field<13) ? fieldTypeFlags[field] : 0;
+    return (field>=0 && field<14) ? fieldTypeFlags[field] : 0;
 }
 
 const char *BPABPacketDescriptor::getFieldName(void *object, int field) const
@@ -377,6 +392,7 @@ const char *BPABPacketDescriptor::getFieldName(void *object, int field) const
     }
     static const char *fieldNames[] = {
         "bpabType",
+        "incomingDir",
         "direction",
         "rtbSentTime",
         "sourceId",
@@ -390,7 +406,7 @@ const char *BPABPacketDescriptor::getFieldName(void *object, int field) const
         "limitU",
         "payload",
     };
-    return (field>=0 && field<13) ? fieldNames[field] : NULL;
+    return (field>=0 && field<14) ? fieldNames[field] : NULL;
 }
 
 int BPABPacketDescriptor::findField(void *object, const char *fieldName) const
@@ -398,18 +414,19 @@ int BPABPacketDescriptor::findField(void *object, const char *fieldName) const
     cClassDescriptor *basedesc = getBaseClassDescriptor();
     int base = basedesc ? basedesc->getFieldCount(object) : 0;
     if (fieldName[0]=='b' && strcmp(fieldName, "bpabType")==0) return base+0;
-    if (fieldName[0]=='d' && strcmp(fieldName, "direction")==0) return base+1;
-    if (fieldName[0]=='r' && strcmp(fieldName, "rtbSentTime")==0) return base+2;
-    if (fieldName[0]=='s' && strcmp(fieldName, "sourceId")==0) return base+3;
-    if (fieldName[0]=='d' && strcmp(fieldName, "destinationId")==0) return base+4;
-    if (fieldName[0]=='s' && strcmp(fieldName, "sourceX")==0) return base+5;
-    if (fieldName[0]=='s' && strcmp(fieldName, "sourceY")==0) return base+6;
-    if (fieldName[0]=='i' && strcmp(fieldName, "iteration")==0) return base+7;
-    if (fieldName[0]=='m' && strcmp(fieldName, "maxIterations")==0) return base+8;
-    if (fieldName[0]=='r' && strcmp(fieldName, "rangeR")==0) return base+9;
-    if (fieldName[0]=='l' && strcmp(fieldName, "limitL")==0) return base+10;
-    if (fieldName[0]=='l' && strcmp(fieldName, "limitU")==0) return base+11;
-    if (fieldName[0]=='p' && strcmp(fieldName, "payload")==0) return base+12;
+    if (fieldName[0]=='i' && strcmp(fieldName, "incomingDir")==0) return base+1;
+    if (fieldName[0]=='d' && strcmp(fieldName, "direction")==0) return base+2;
+    if (fieldName[0]=='r' && strcmp(fieldName, "rtbSentTime")==0) return base+3;
+    if (fieldName[0]=='s' && strcmp(fieldName, "sourceId")==0) return base+4;
+    if (fieldName[0]=='d' && strcmp(fieldName, "destinationId")==0) return base+5;
+    if (fieldName[0]=='s' && strcmp(fieldName, "sourceX")==0) return base+6;
+    if (fieldName[0]=='s' && strcmp(fieldName, "sourceY")==0) return base+7;
+    if (fieldName[0]=='i' && strcmp(fieldName, "iteration")==0) return base+8;
+    if (fieldName[0]=='m' && strcmp(fieldName, "maxIterations")==0) return base+9;
+    if (fieldName[0]=='r' && strcmp(fieldName, "rangeR")==0) return base+10;
+    if (fieldName[0]=='l' && strcmp(fieldName, "limitL")==0) return base+11;
+    if (fieldName[0]=='l' && strcmp(fieldName, "limitU")==0) return base+12;
+    if (fieldName[0]=='p' && strcmp(fieldName, "payload")==0) return base+13;
     return basedesc ? basedesc->findField(object, fieldName) : -1;
 }
 
@@ -424,6 +441,7 @@ const char *BPABPacketDescriptor::getFieldTypeString(void *object, int field) co
     static const char *fieldTypeStrings[] = {
         "int",
         "int",
+        "int",
         "double",
         "int",
         "int",
@@ -436,7 +454,7 @@ const char *BPABPacketDescriptor::getFieldTypeString(void *object, int field) co
         "double",
         "string",
     };
-    return (field>=0 && field<13) ? fieldTypeStrings[field] : NULL;
+    return (field>=0 && field<14) ? fieldTypeStrings[field] : NULL;
 }
 
 const char *BPABPacketDescriptor::getFieldProperty(void *object, int field, const char *propertyname) const
@@ -452,6 +470,9 @@ const char *BPABPacketDescriptor::getFieldProperty(void *object, int field, cons
             if (!strcmp(propertyname,"enum")) return "BPABMessageType";
             return NULL;
         case 1:
+            if (!strcmp(propertyname,"enum")) return "direction";
+            return NULL;
+        case 2:
             if (!strcmp(propertyname,"enum")) return "direction";
             return NULL;
         default: return NULL;
@@ -483,18 +504,19 @@ std::string BPABPacketDescriptor::getFieldAsString(void *object, int field, int 
     BPABPacket *pp = (BPABPacket *)object; (void)pp;
     switch (field) {
         case 0: return long2string(pp->getBpabType());
-        case 1: return long2string(pp->getDirection());
-        case 2: return double2string(pp->getRtbSentTime());
-        case 3: return long2string(pp->getSourceId());
-        case 4: return long2string(pp->getDestinationId());
-        case 5: return double2string(pp->getSourceX());
-        case 6: return double2string(pp->getSourceY());
-        case 7: return long2string(pp->getIteration());
-        case 8: return long2string(pp->getMaxIterations());
-        case 9: return double2string(pp->getRangeR());
-        case 10: return double2string(pp->getLimitL());
-        case 11: return double2string(pp->getLimitU());
-        case 12: return oppstring2string(pp->getPayload());
+        case 1: return long2string(pp->getIncomingDir());
+        case 2: return long2string(pp->getDirection());
+        case 3: return double2string(pp->getRtbSentTime());
+        case 4: return long2string(pp->getSourceId());
+        case 5: return long2string(pp->getDestinationId());
+        case 6: return double2string(pp->getSourceX());
+        case 7: return double2string(pp->getSourceY());
+        case 8: return long2string(pp->getIteration());
+        case 9: return long2string(pp->getMaxIterations());
+        case 10: return double2string(pp->getRangeR());
+        case 11: return double2string(pp->getLimitL());
+        case 12: return double2string(pp->getLimitU());
+        case 13: return oppstring2string(pp->getPayload());
         default: return "";
     }
 }
@@ -510,18 +532,19 @@ bool BPABPacketDescriptor::setFieldAsString(void *object, int field, int i, cons
     BPABPacket *pp = (BPABPacket *)object; (void)pp;
     switch (field) {
         case 0: pp->setBpabType(string2long(value)); return true;
-        case 1: pp->setDirection(string2long(value)); return true;
-        case 2: pp->setRtbSentTime(string2double(value)); return true;
-        case 3: pp->setSourceId(string2long(value)); return true;
-        case 4: pp->setDestinationId(string2long(value)); return true;
-        case 5: pp->setSourceX(string2double(value)); return true;
-        case 6: pp->setSourceY(string2double(value)); return true;
-        case 7: pp->setIteration(string2long(value)); return true;
-        case 8: pp->setMaxIterations(string2long(value)); return true;
-        case 9: pp->setRangeR(string2double(value)); return true;
-        case 10: pp->setLimitL(string2double(value)); return true;
-        case 11: pp->setLimitU(string2double(value)); return true;
-        case 12: pp->setPayload((value)); return true;
+        case 1: pp->setIncomingDir(string2long(value)); return true;
+        case 2: pp->setDirection(string2long(value)); return true;
+        case 3: pp->setRtbSentTime(string2double(value)); return true;
+        case 4: pp->setSourceId(string2long(value)); return true;
+        case 5: pp->setDestinationId(string2long(value)); return true;
+        case 6: pp->setSourceX(string2double(value)); return true;
+        case 7: pp->setSourceY(string2double(value)); return true;
+        case 8: pp->setIteration(string2long(value)); return true;
+        case 9: pp->setMaxIterations(string2long(value)); return true;
+        case 10: pp->setRangeR(string2double(value)); return true;
+        case 11: pp->setLimitL(string2double(value)); return true;
+        case 12: pp->setLimitU(string2double(value)); return true;
+        case 13: pp->setPayload((value)); return true;
         default: return false;
     }
 }

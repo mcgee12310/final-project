@@ -1,7 +1,6 @@
 #ifdef _WIN32
     #include <winsock2.h>
     #include <ws2tcpip.h>
-    // Ä�á»‹nh nghÄ©a kiá»ƒu socklen_t cho Windows
     typedef int socklen_t;
 #else
     #include <sys/socket.h>
@@ -19,87 +18,108 @@
 
 using namespace std;
 
-// Dinh nghia cac trang thai cua giao thuc BPAB tai tang MAC
+#define BROADCAST_INTER (-2)
+
+static const double SIFS_SLOTS = 0.5;   // SIFS = 0.5 * slotDuration
+static const int    CW_MIN     = 4;     // CW tối thiểu (slots)
+static const int    CW_MAX     = 16;    // CW tối đa (slots)
+
 enum BpabMacState {
-    BPAB_IDLE = 1,          // Dang ranh, doi goi tin tu App hoac Radio
-    BPAB_CONTENDING = 2,    // Dang trong qua trinh tranh chap nhi phan (N vong lap)
-    BPAB_TRANSMITTING = 3,  // Dang phat du lieu thuc te sau khi thang tranh chap
-    BPAB_WAITING_BB = 4,    // Dang nghe Xung den (Black Burst) tu cac xe khac
-    BPAB_WAIT_CTB = 5,
-    BPAB_WAIT_DATA = 6,
-    BPAB_PRE_CTB = 7,
-    BPAB_WAIT_ACK = 8
+    BPAB_IDLE             = 1,
+    BPAB_CONTENDING       = 2,
+    BPAB_TRANSMITTING     = 3,
+    BPAB_WAITING_BB       = 4,
+    BPAB_WAIT_CTB         = 5,
+    BPAB_WAIT_DATA        = 6,
+    BPAB_PRE_CTB          = 7,
+    BPAB_WAIT_ACK         = 8,
+    BPAB_INTER_CONTENDING = 9
+};
+
+enum InterRole {
+    INTER_ROLE_NONE      = 0,
+    INTER_ROLE_OPPOSITE  = 1,   // hướng đối diện nguồn → binary
+    INTER_ROLE_CROSS_A   = 2,   // hướng giao cắt A (tranh chấp slot lẻ)
+    INTER_ROLE_CROSS_B   = 3,   // hướng giao cắt B (tranh chấp slot chẵn)
 };
 
 class BpabMac: public VirtualMac {
  private:
-    // --- Cac tham so doc tu file .ned ---
-    int maxIterations;        // N: So vong lap toi da
-    double rangeR;            // R: Pham vi truyen dan
+    // --- Tham so NED ---
+    int    maxIterations;
+    double rangeR;
     double widthW;
     double minProgress;
-    double slotDuration;      // Thoi gian cua mot khe (slot)
-    double bbTxPower;         // Cong suat phat Xung den
-    double rssiThreshold;     // Nguong nang luong de nhan dien Xung den
+    double slotDuration;
+    int    maxRetries;
 
-    // --- Cac bien trang thai noi bo ---
-    int myId;
-    double myX;
-    double myY;
-    double lastX;
-    double lastY;
+    // --- Trang thai chung ---
+    double myX, myY;
+    double lastX, lastY;
     double myDistanceToSrc;
-    int srcDirection;
+    int    srcDirection;
     double slotStartTime;
+    int    retryCount;
+    int    transmissionDirection;
+    int    lastRTBDirection;      // Hướng RTB vừa gửi (INTER hoặc thường)
+    int    lastDataDestId;        // ID relay vừa gửi DATA để nhận ACK ngầm
 
-    int transmissionDirection;
-    BpabMacState bpabMacState; // Trang thai hien tai cua MAC
-    int currentIteration;      // Vong lap hien tai (i)
-    double limitL;             // Ranh gioi duoi (Lower bound)
-    double limitU;             // Ranh gioi tren (Upper bound)
-    bool heardBB;
-    bool heardCTB;
-    bool isTransmitting;
-    std::queue<int> branchQueue;
-    int lastDataDestId;
+    BpabMacState bpabMacState;
+    int    currentIteration;
+    double limitL, limitU;
+    bool   heardBB;
+    bool   heardCTB;
+    bool   isTransmitting;
 
-    int retryCount;
-    int maxRetries;
-
-    // Luu tru thong tin xe nguon (Initiator)
+    // --- Thông tin nguồn ---
     VirtualMobilityManager* mobilityModule;
-    double srcX;
-    double srcY;
-    int srcId;
+    double srcX, srcY;
+    int    srcId;
 
-    // Goi tin dang cho de gui (Buffer)
+    // --- Buffer gói ---
     BPABPacket *packetToBroadcast;
 
-    // --- Cac ham ho tro thuat toan ---
-    bool isValidForwardNode(double myX, double myY,
-                                     double srcX, double srcY,
-                                     int direction,
-                                     double rangeR);
-    void preparePacket(cPacket *netPkt);
-    void sendRTB();
-    void sendCTB();
-    void sendData(int winnerId);
-    void sendBlackBurst();      // Ham phat xung den vat ly
-    void endContention(bool won); // Ket thuc tranh chap (Thang/Thua)
-    int calculateTransmissionDirection();
-    void processNextBranch();
-    int getIncomingBranch(double sX, double sY, double mX, double mY);
+    int    myInterRole;          // vai trò của node relay
+    int    crossIteration;       // vòng lặp hiện tại (cross direction)
+    double limitLCross;          // giới hạn contention cross
+    double limitUCross;
+    bool   crossIsTransmitting;
+    bool   crossHeardBB;
+    bool   crossWon;             // đã thắng cross contention
+    bool   heardAnyCTB;       // nguồn giao lộ đã nghe CTB nào chưa
+    int    incomingBranchDir; // hướng gói đi vào giao lộ
+    int    myInterBranch;     // nhánh hiện tại của node
+    int    interSrcId;        // source của phiên UMBP
+    double interSrcX;
+    double interSrcY;
+
+    // --- Hàm hỗ trợ chung ---
+    bool   isValidForwardNode(double myX, double myY,
+                              double srcX, double srcY,
+                              int direction, double rangeR);
+    void   preparePacket(cPacket *netPkt);
+    void   sendRTB();
+    void   sendCTB();
+    void   sendData(int winnerId);
+    void   sendBlackBurst();
+    void   endContention(bool won);
+    int    calculateTransmissionDirection();
+    int    getIncomingBranch(double sX, double sY, double mX, double mY);
+
+    // --- Hàm hỗ trợ giao lộ (Đã cập nhật theo Radial Zoning) ---
+    void   sendInterRTB();           // không nhận tham số, dùng incomingBranchDir
+    void   sendInterBroadcastData();
+    int    getInterBranch(double mX, double mY, double sX, double sY);
+    double interTotalTimeout(int excludeDir);
 
  protected:
-    // --- Cac ham bat buoc cua Castalia VirtualMac ---
     void startup();
     void fromNetworkLayer(cPacket *, int);
     void fromRadioLayer(cPacket *, double, double);
-    int handleRadioControlMessage(cMessage *msg);
+    int  handleRadioControlMessage(cMessage *msg);
     void timerFiredCallback(int);
 
  public:
-    // Constructor va Destructor
     BpabMac() : VirtualMac() {}
     virtual ~BpabMac();
 };
