@@ -453,14 +453,16 @@ void BpabMac::fromRadioLayer(cPacket *msg, double rssi, double lqi) {
 int BpabMac::handleRadioControlMessage(cMessage *msg) {
     RadioControlMessage *r = dynamic_cast<RadioControlMessage*>(msg);
     if (r && r->getRadioControlMessageKind() == CARRIER_SENSE_INTERRUPT) {
-        if (bpabMacState == BPAB_CONTENDING && !isTransmitting)
-            heardBB = true;
+        if (bpabMacState == BPAB_CONTENDING && !isTransmitting) heardBB = true;
+
         if (bpabMacState == BPAB_INTER_CONTENDING) {
-            if (myInterRole == INTER_ROLE_OPPOSITE && !isTransmitting)
-                heardBB = true;
+            if (myInterRole == INTER_ROLE_OPPOSITE && !isTransmitting) heardBB = true;
+
             if ((myInterRole == INTER_ROLE_CROSS_A || myInterRole == INTER_ROLE_CROSS_B)
                 && !crossIsTransmitting)
                 crossHeardBB = true;
+
+            if (bpabMacState == BPAB_PRE_CTB) heardBB = true;
         }
         return 1;
     }
@@ -602,9 +604,11 @@ void BpabMac::timerFiredCallback(int timerIndex) {
     case 6: {
         if (bpabMacState != BPAB_PRE_CTB) break;
         toRadioLayer(createRadioCommand(SET_CS_INTERRUPT_OFF));
-        if (heardCTB) {
+        if (heardBB || heardCTB) {
             WEBLOG("EVENT:STATE | Node:" << self << " | State:IDLE | Reason:LOST_BACKOFF");
-            heardCTB = false; bpabMacState = BPAB_IDLE; break;
+            heardCTB = false;
+            bpabMacState = BPAB_IDLE;
+            break;
         }
         WEBLOG("EVENT:SEND_CTB | From:" << self << " | To:" << this->srcId);
         sendCTB();
@@ -810,10 +814,15 @@ void BpabMac::endContention(bool won) {
             // Dùng timer 13 (SIFS path) cho opposite: trực tiếp vào CW
             setTimer(13, waitTime);
         } else {
-            double backoff = uniform(slotDuration, slotDuration * 3.0);
-            WEBLOG("EVENT:WINNER | Node:" << self << " | Backoff:" << backoff << " | Type:NORMAL");
             bpabMacState = BPAB_PRE_CTB;
             WEBLOG("EVENT:STATE | Node:" << self << " | State:PRE_CTB");
+
+            int cwSlots = CW_MIN + intuniform(0, CW_MAX - CW_MIN);
+            double backoff = cwSlots * slotDuration;
+            WEBLOG("EVENT:CW_BACKOFF | Node:" << self << " | CW:" << cwSlots);
+            toRadioLayer(createRadioCommand(SET_STATE, RX));
+            toRadioLayer(createRadioCommand(SET_CS_INTERRUPT_ON));
+
             setTimer(6, backoff);
         }
     } else {
@@ -823,7 +832,9 @@ void BpabMac::endContention(bool won) {
         bpabMacState = BPAB_IDLE;
         WEBLOG("EVENT:STATE | Node:" << self << " | State:IDLE");
     }
-    currentIteration = 0; heardBB = false; isTransmitting = false;
+    currentIteration = 0;
+    heardBB = false;
+    isTransmitting = false;
 }
 
 // ─────────────────────────────────────────────
@@ -966,7 +977,7 @@ void BpabMac::sendCTB() {
     bpabMacState = BPAB_WAIT_DATA;
     WEBLOG("EVENT:STATE | Node:" << self << " | State:WAIT_DATA");
     setTimer(4, slotDuration * 0.1);
-    setTimer(5, slotDuration * 10);
+    setTimer(5, slotDuration * 30);
 }
 
 void BpabMac::sendData(int winnerId) {
