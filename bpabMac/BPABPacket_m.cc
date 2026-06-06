@@ -60,6 +60,8 @@ EXECUTE_ON_STARTUP(
     e->insert(BPAB_BLACK_BURST, "BPAB_BLACK_BURST");
     e->insert(BPAB_CTB, "BPAB_CTB");
     e->insert(BPAB_DATA, "BPAB_DATA");
+    e->insert(BPAB_CTB_RSU, "BPAB_CTB_RSU");
+    e->insert(BPAB_RSU_ACK, "BPAB_RSU_ACK");
 );
 
 EXECUTE_ON_STARTUP(

@@ -64,12 +64,25 @@ void BpabMac::startup() {
     if (!mobility) error("MobilityManager not found!");
     mobilityModule = check_and_cast<VirtualMobilityManager*>(mobility);
 
+    nodeType = hasPar("nodeType") ? (int)par("nodeType") : NODE_VEHICLE;
+
     maxIterations = par("maxIterations");
     rangeR        = par("rangeR");
     widthW        = hasPar("widthW")      ? (double)par("widthW")      : 50.0;
     minProgress   = hasPar("minProgress") ? (double)par("minProgress") : 20.0;
     slotDuration  = par("slotDuration");
     maxRetries    = par("maxRetries");
+
+    if (nodeType == NODE_RSU) {
+        bpabMacState = BPAB_IDLE;
+
+        toRadioLayer(createRadioCommand(SET_STATE, RX));
+        toRadioLayer(createRadioCommand(SET_CS_INTERRUPT_ON));
+        myX = mobilityModule->getLocation().x;
+        myY = mobilityModule->getLocation().y;
+        WEBLOG("EVENT:POS | Node:" << self << " | x:" << myX << " | y:" << myY << " | Type:RSU");
+        return;
+    }
 
     retryCount        = 0;
     bpabMacState      = BPAB_IDLE;
@@ -93,7 +106,7 @@ void BpabMac::startup() {
     transmissionDirection = EAST;
     setTimer(9, 1.0);
 
-    WEBLOG("EVENT:POS | Node:" << self << " | x:" << myX << " | y:" << myY);
+    WEBLOG("EVENT:POS | Node:" << self << " | x:" << myX << " | y:" << myY << " | Type:Vehicle");
 }
 
 BpabMac::~BpabMac() {
@@ -157,6 +170,48 @@ void BpabMac::fromRadioLayer(cPacket *msg, double rssi, double lqi) {
 
     // ── RTB ──────────────────────────────────
     case BPAB_RTB: {
+        if (nodeType == NODE_RSU) {
+            double mX = mobilityModule->getLocation().x;
+            double mY = mobilityModule->getLocation().y;
+            double sX = pkt->getSourceX();
+            double sY = pkt->getSourceY();
+
+            double dist = sqrt((mX-sX)*(mX-sX) + (mY-sY)*(mY-sY));
+
+            if (dist > rangeR) return;
+
+            srcId = pkt->getSourceId();
+            this->srcX = sX;
+            this->srcY = sY;
+
+            cancelTimer(1);
+            cancelTimer(2);
+            cancelTimer(3);
+            cancelTimer(4);
+            cancelTimer(11);
+            cancelTimer(12);
+            cancelTimer(13);
+            cancelTimer(14);
+
+            toRadioLayer(createRadioCommand(SET_CS_INTERRUPT_OFF));
+            bpabMacState = BPAB_WAIT_DATA;
+
+            if (pkt->getDirection() == INTER) {
+                WEBLOG("EVENT:RSU_INTER_PREEMPT | Node:" << self
+                       << " | Src:" << srcId
+                       << " | Action:IMMEDIATE_CTB_RSU_INTER");
+            }
+            else {
+                WEBLOG("EVENT:RSU_PREEMPT | Node:" << self
+                       << " | Src:" << srcId
+                       << " | Action:IMMEDIATE_CTB_RSU");
+            }
+
+            sendCTB_RSU();
+            setTimer(5, slotDuration * 50);
+            return;
+        }
+
         // ACK ngầm
         if (bpabMacState == BPAB_WAIT_ACK) {
             if (pkt->getSourceId() == lastDataDestId) {
@@ -187,7 +242,7 @@ void BpabMac::fromRadioLayer(cPacket *msg, double rssi, double lqi) {
 
             // Kiểm tra isValidForwardNode theo hướng của nhánh mình
             if (!isValidForwardNode(mX, mY, sX, sY, myBranch, rangeR)) {
-                WEBLOG("EVENT:FILTER | Node:" << self << " | Status:WRONG_DIRECTION");
+//                WEBLOG("EVENT:FILTER | Node:" << self << " | Status:WRONG_DIRECTION");
                 return;
             }
 
@@ -265,7 +320,7 @@ void BpabMac::fromRadioLayer(cPacket *msg, double rssi, double lqi) {
 
         // ── RTB có hướng thông thường ──
         if (!isValidForwardNode(mX, mY, sX, sY, dir, rangeR)) {
-            WEBLOG("EVENT:FILTER | Node:" << self << " | Status:WRONG_DIRECTION");
+//            WEBLOG("EVENT:FILTER | Node:" << self << " | Status:WRONG_DIRECTION");
             return;
         }
 
@@ -311,10 +366,27 @@ void BpabMac::fromRadioLayer(cPacket *msg, double rssi, double lqi) {
         break;
     }
 
+    case BPAB_RSU_ACK: {
+        if (bpabMacState == BPAB_WAIT_ACK &&
+            pkt->getDestinationId() == self)
+        {
+            cancelTimer(8);
+            bpabMacState = BPAB_IDLE;
+            WEBLOG("EVENT:ACK_RECEIVED | Node:" << self);
+            if(packetToBroadcast)
+            {
+                delete packetToBroadcast;
+                packetToBroadcast = NULL;
+            }
+
+            WEBLOG("EVENT:STATE | Node:" << self << " | State:IDLE");
+        }
+        break;
+    }
+
     // ── CTB ──────────────────────────────────
     case BPAB_CTB: {
         int winnerId = pkt->getSourceId();
-
         if (bpabMacState == BPAB_PRE_CTB) {
             WEBLOG("EVENT:BACKDOWN | Node:" << self << " | Reason:HEARD_OTHER_CTB");
             heardCTB = true;
@@ -352,16 +424,71 @@ void BpabMac::fromRadioLayer(cPacket *msg, double rssi, double lqi) {
         if (bpabMacState == BPAB_WAIT_CTB && packetToBroadcast) {
             if (pkt->getDestinationId() == self) {
                 retryCount = 0;
-                cancelTimer(3); cancelTimer(4);
+                cancelTimer(3);
+                cancelTimer(4);
                 sendData(winnerId);
             }
         }
         break;
     }
 
+    case BPAB_CTB_RSU: {
+        int rsuId = pkt->getSourceId();
+
+        // Source node nhận CTB_RSU
+        if (bpabMacState == BPAB_WAIT_CTB &&
+            pkt->getDestinationId() == self)
+        {
+            WEBLOG("EVENT:RSU_SELECTED | RSU:" << rsuId);
+
+            cancelTimer(3);
+            cancelTimer(4);
+
+            sendData(rsuId);
+            break;
+        }
+
+        // Mọi relay candidate đang tranh chấp phải dừng
+        if (bpabMacState == BPAB_CONTENDING ||
+            bpabMacState == BPAB_PRE_CTB ||
+            bpabMacState == BPAB_INTER_CONTENDING)
+        {
+            cancelTimer(1);
+            cancelTimer(2);
+            cancelTimer(11);
+            cancelTimer(12);
+            cancelTimer(13);
+            cancelTimer(14);
+
+            WEBLOG("EVENT:DROP_OUT | Node:" << self << " | Reason:RSU_PREEMPT");
+            bpabMacState = BPAB_IDLE;
+            WEBLOG("EVENT:STATE | Node:" << self << " | State:IDLE");
+            break;
+        }
+
+        break;
+    }
+
     // ── DATA ─────────────────────────────────
     case BPAB_DATA: {
         cPacket *netPkt = pkt->decapsulate();
+
+        if (nodeType == NODE_RSU && pkt->getDestinationId() == self) {
+            cancelTimer(5);
+            bpabMacState   = BPAB_IDLE;
+
+            WEBLOG("EVENT:RSU_MISSION_COMPLETE | Node:" << self
+                   << " | Src:" << pkt->getSourceId()
+                   << " | Payload:" << pkt->getPayload()
+                   << " | Action:BROADCAST_ALERT_TO_INFRASTRUCTURE");
+
+            int relayId = pkt->getSourceId();
+            sendAckToRelay(relayId);
+
+            delete netPkt;
+            WEBLOG("EVENT:STATE | Node:" << self << " | State:IDLE");
+            break;
+        }
 
         // DATA giao lộ broadcast
         if (pkt->getDestinationId() == BROADCAST_INTER) {
@@ -577,7 +704,8 @@ void BpabMac::timerFiredCallback(int timerIndex) {
         if (packetToBroadcast && retryCount < maxRetries) {
             retryCount++;
             WEBLOG("EVENT:RETRY_RTB | Node:" << self << " | Retry:" << retryCount);
-            sendRTB();
+            double jitter = uniform(slotDuration * 0.1, slotDuration * 8.0);
+            setTimer(7, jitter);
         } else {
             WEBLOG("EVENT:DROP_PKT | Node:" << self << " | Reason:EMPTY_BRANCH_TIMEOUT");
             if (packetToBroadcast) { delete packetToBroadcast; packetToBroadcast = NULL; }
@@ -617,8 +745,6 @@ void BpabMac::timerFiredCallback(int timerIndex) {
 
     case 7: {
         if (bpabMacState == BPAB_IDLE && packetToBroadcast != NULL) {
-            WEBLOG("EVENT:JITTER_SEND_RTB | Node:" << self
-                   << " | Dir:" << dirName(transmissionDirection));
             sendRTB();
         } else {
             toRadioLayer(createRadioCommand(SET_STATE, RX));
@@ -636,7 +762,8 @@ void BpabMac::timerFiredCallback(int timerIndex) {
             cPacket *netPkt = packetToBroadcast->decapsulate();
             delete packetToBroadcast; packetToBroadcast = NULL;
             preparePacket(netPkt);
-            sendRTB();
+            double jitter = uniform(slotDuration * 0.1, slotDuration * 8.0);
+            setTimer(7, jitter);
         }
         break;
     }
@@ -980,9 +1107,27 @@ void BpabMac::sendCTB() {
     setTimer(5, slotDuration * 30);
 }
 
+void BpabMac::sendCTB_RSU() {
+    BPABPacket *ctb = new BPABPacket("BPAB_CTB_RSU", MAC_LAYER_PACKET);
+    ctb->setBpabType(BPAB_CTB_RSU);
+    ctb->setSourceId(self);
+    ctb->setDestinationId(srcId);
+    ctb->setDirection(INTER);
+    ctb->setByteLength(1);
+
+    toRadioLayer(ctb);
+    toRadioLayer(createRadioCommand(SET_STATE, TX));
+//    setTimer(4, slotDuration * 0.01);
+
+    WEBLOG("EVENT:RSU_SEND_CTB | Node:" << self
+           << " | To:" << srcId
+           << " | Type:CTB_RSU_IMMEDIATE");
+}
+
 void BpabMac::sendData(int winnerId) {
     WEBLOG("EVENT:SEND_DATA | From:" << self << " | To:" << winnerId);
     lastDataDestId = winnerId;
+    packetToBroadcast->setSourceId(self);   // Relay hiện tại
     packetToBroadcast->setDestinationId(winnerId);
     packetToBroadcast->setBpabType(BPAB_DATA);
     toRadioLayer(packetToBroadcast->dup());
@@ -990,6 +1135,23 @@ void BpabMac::sendData(int winnerId) {
     bpabMacState = BPAB_WAIT_ACK;
     WEBLOG("EVENT:STATE | Node:" << self << " | State:WAIT_ACK");
     setTimer(8, slotDuration * 20);
+}
+
+void BpabMac::sendAckToRelay(int relayId){
+    BPABPacket *ack = new BPABPacket("BPAB_RSU_ACK", MAC_LAYER_PACKET);
+    ack->setBpabType(BPAB_RSU_ACK);
+    ack->setSourceId(self);
+    ack->setDestinationId(relayId);
+    ack->setByteLength(1);
+
+    toRadioLayer(ack);
+    toRadioLayer(createRadioCommand(SET_STATE, TX));
+
+    // [SỬA LỖI]: Thêm dòng này để RSU quay lại trạng thái RX, sẵn sàng hỗ trợ các xe khác
+//    setTimer(4, slotDuration * 0.01);
+
+    WEBLOG("EVENT:RSU_SEND_ACK | RSU:" << self
+           << " | Relay:" << relayId);
 }
 
 int BpabMac::calculateTransmissionDirection() {

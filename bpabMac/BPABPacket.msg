@@ -24,6 +24,8 @@ enum BPABMessageType {
     BPAB_BLACK_BURST = 2;
     BPAB_CTB = 3;
     BPAB_DATA = 4;
+    BPAB_CTB_RSU = 5;
+    BPAB_RSU_ACK = 6;
 };
 
 enum direction {

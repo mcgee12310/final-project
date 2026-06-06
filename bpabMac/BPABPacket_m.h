@@ -29,6 +29,8 @@
  *     BPAB_BLACK_BURST = 2;
  *     BPAB_CTB = 3;
  *     BPAB_DATA = 4;
+ *     BPAB_CTB_RSU = 5;
+ *     BPAB_RSU_ACK = 6;
  * }
  * </pre>
  */
@@ -36,11 +38,13 @@ enum BPABMessageType {
     BPAB_RTB = 1,
     BPAB_BLACK_BURST = 2,
     BPAB_CTB = 3,
-    BPAB_DATA = 4
+    BPAB_DATA = 4,
+    BPAB_CTB_RSU = 5,
+    BPAB_RSU_ACK = 6
 };
 
 /**
- * Enum generated from <tt>src/node/communication/mac/bpabMac/BPABPacket.msg:29</tt> by nedtool.
+ * Enum generated from <tt>src/node/communication/mac/bpabMac/BPABPacket.msg:31</tt> by nedtool.
  * <pre>
  * enum direction
  * {
@@ -62,7 +66,7 @@ enum direction {
 };
 
 /**
- * Class generated from <tt>src/node/communication/mac/bpabMac/BPABPacket.msg:37</tt> by nedtool.
+ * Class generated from <tt>src/node/communication/mac/bpabMac/BPABPacket.msg:39</tt> by nedtool.
  * <pre>
  * packet BPABPacket extends MacPacket
  * {

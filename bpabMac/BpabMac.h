@@ -24,6 +24,11 @@ static const double SIFS_SLOTS = 0.5;   // SIFS = 0.5 * slotDuration
 static const int    CW_MIN     = 4;     // CW tối thiểu (slots)
 static const int    CW_MAX     = 16;    // CW tối đa (slots)
 
+enum NodeType {
+    NODE_VEHICLE = 0,
+    NODE_RSU     = 1,
+};
+
 enum BpabMacState {
     BPAB_IDLE             = 1,
     BPAB_CONTENDING       = 2,
@@ -46,6 +51,7 @@ enum InterRole {
 class BpabMac: public VirtualMac {
  private:
     // --- Tham so NED ---
+    int nodeType; // đọc từ NED parameter
     int    maxIterations;
     double rangeR;
     double widthW;
@@ -100,9 +106,11 @@ class BpabMac: public VirtualMac {
     void   preparePacket(cPacket *netPkt);
     void   sendRTB();
     void   sendCTB();
+    void sendCTB_RSU();
     void   sendData(int winnerId);
     void   sendBlackBurst();
     void   endContention(bool won);
+    void sendAckToRelay(int relayId);
     int    calculateTransmissionDirection();
     int    getIncomingBranch(double sX, double sY, double mX, double mY);
 

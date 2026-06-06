@@ -130,67 +130,6 @@
       cursor: pointer;
     }
 
-    /* Auto-slow indicator */
-    #slowIndicator {
-      display: none;
-      align-items: center;
-      gap: 6px;
-      background: #fef9e7;
-      border: 1px solid #f1c40f;
-      border-radius: 6px;
-      padding: 4px 10px;
-      font-size: 12px;
-      font-weight: bold;
-      color: #d35400;
-      white-space: nowrap;
-    }
-
-    #slowIndicator.active {
-      display: flex;
-    }
-
-    #slowDot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: #e74c3c;
-      animation: pulse 0.8s infinite alternate;
-    }
-
-    @keyframes pulse {
-      from {
-        opacity: 1;
-        transform: scale(1);
-      }
-
-      to {
-        opacity: 0.4;
-        transform: scale(0.7);
-      }
-    }
-
-    /* Auto-slow settings panel */
-    #slowSettings {
-      background: #f8f9fa;
-      border: 1px solid #e0e0e0;
-      border-radius: 6px;
-      padding: 8px 12px;
-      font-size: 12px;
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      align-items: center;
-      margin-top: 8px;
-    }
-
-    #slowSettings label {
-      display: flex;
-      align-items: center;
-      gap: 5px;
-      cursor: pointer;
-    }
-
-    /* Log box */
     #logBox {
       width: 380px;
       flex-shrink: 0;
@@ -271,7 +210,7 @@
     .cap-winner {
       color: #27ae60;
       font-weight: bold;
-      font-size: 15px;
+      font-size: 14px;
     }
 
     .cap-data {
@@ -298,14 +237,6 @@
           <button id="btnParse" class="btn">Load &amp; Parse Log</button>
           <span id="parseStatus" style="margin-left:10px;font-size:12px;color:#27ae60;"></span>
         </div>
-
-        <div id="slowSettings">
-          <b>🐢 Auto-slow:</b>
-          <label><input type="checkbox" id="sl_enable" checked> Tự động làm cực chậm khi tranh chấp</label>
-          <span style="margin-left:12px;">Hệ số chậm:</span>
-          <input type="range" id="slowFactorInput" min="10" max="10000" value="2000" step="10" style="width:100px;">
-          <span id="slowFactorLabel" style="font-weight:bold;color:#e67e22;">÷2000</span>
-        </div>
       </div>
       <div style="flex:1;border-left:2px solid #eee;padding-left:20px;">
         <label><b>Legend:</b></label><br>
@@ -315,11 +246,13 @@
         <div class="legend-item"><span class="color-box" style="background:#9b59b6;"></span> WAIT_ACK</div>
         <div class="legend-item"><span class="color-box" style="background:#e67e22;"></span> PRE_CTB</div>
         <div class="legend-item"><span class="color-box" style="background:#ffd700;border-radius:50%"></span> WINNER
-        </div><br>
+        </div>
+        <div class="legend-item"><span class="color-box" style="background:#d35400;"></span> RSU_DONE</div><br>
         <div class="legend-item"><span style="color:#000;font-weight:bold;">○</span> Black-Burst (BB)</div>
         <div class="legend-item"><span style="color:#3498db;font-weight:bold;">→</span> RTB</div>
         <div class="legend-item"><span style="color:#f1c40f;font-weight:bold;">→</span> CTB</div>
         <div class="legend-item"><span style="color:#2ecc71;font-weight:bold;">→</span> DATA</div>
+        <div class="legend-item"><span style="color:#9b59b6;font-weight:bold;">→</span> ACK</div>
       </div>
     </div>
   </div>
@@ -336,6 +269,9 @@
           </marker>
           <marker id="arrow-yellow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
             <path d="M0,0 L0,6 L9,3 z" fill="#f1c40f" />
+          </marker>
+          <marker id="arrow-purple" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L9,3 z" fill="#9b59b6" />
           </marker>
         </defs>
         <g id="zoom-layer">
@@ -356,52 +292,32 @@
   <div id="frameBar">
     <button id="playPauseBtn" class="btn play">▶ Play</button>
     <button id="stepBtn" class="btn step">⏭ Step to Contention</button>
-    <div id="slowIndicator">
-      <div id="slowDot"></div>
-      <span id="slowReason">auto-slow</span>
-    </div>
 
     <label style="margin-left: 10px;">Speed:</label>
     <input type="range" id="speedInput" min="0" max="9" value="7" step="1" style="width: 80px;">
     <span id="speedLabel" style="min-width: 35px; font-weight: bold;">1x</span>
-
     <input id="frameSlider" type="range" min="0" max="100" value="0" step="0.01" style="margin-left: 15px;">
     <div id="timeLabel" style="min-width:80px;font-weight:bold;color:#2980b9;">0.0000 s</div>
   </div>
 
   <script>
-    // ─── STATE ───────────────────────────────────────────────────────────────────
     let events = [];
     let nodePositions = {};
-    let tMin = 0, tMax = 0;
-    let currentTime = 0;
-    let playing = false;
-    let animationRef = null;
-    let lastRafTime = null;
-    let lastProcessedTime = -1;
-    let lastEventIndex = -1;
+    let tMin = 0, tMax = 0, currentTime = 0;
+    let playing = false, animationRef = null, lastRafTime = null;
+    let lastProcessedTime = -1, lastEventIndex = -1;
 
     const FADE_WINDOW = 0.5;
     const speedLevels = [0.01, 0.02, 0.05, 0.1, 0.25, 0.5, 0.75, 1, 2, 3];
+    const CONTENDING_STATES = new Set(["CONTENDING", "PRE_CTB", "WAIT_ACK", "INTER_CONTENDING"]);
+    let isContending = false, contendingCount = 0;
 
-    // ─── AUTO-SLOW STATE ─────────────────────────────────────────────────────────
-    let isContending = false;
-    let contendingCount = 0;
+    // Fixed default slow factor
+    function getSlowFactor() { return 2000; }
 
-    // Trạng thái nào được coi là "đang tranh chấp"
-    const CONTENDING_STATES = new Set(["CONTENDING", "PRE_CTB", "WAIT_ACK"]);
-
-    function getSlowFactor() {
-      return parseInt(document.getElementById("slowFactorInput").value) || 2000;
-    }
-
-    // ─── D3 SETUP ────────────────────────────────────────────────────────────────
-    const svg = d3.select("#svg");
-    const zoomLayer = d3.select("#zoom-layer");
-    const nodeLayer = d3.select("#node-layer");
-    const edgeLayer = d3.select("#edge-layer");
-    const mapLayer = d3.select("#map-layer");
-    const effectLayer = d3.select("#effect-layer");
+    const svg = d3.select("#svg"), zoomLayer = d3.select("#zoom-layer");
+    const nodeLayer = d3.select("#node-layer"), edgeLayer = d3.select("#edge-layer");
+    const mapLayer = d3.select("#map-layer"), effectLayer = d3.select("#effect-layer");
     const logDisplay = document.getElementById("logContent");
 
     let isUserScrolling = false;
@@ -413,168 +329,111 @@
     }
 
     const zoom = d3.zoom().scaleExtent([0.05, 20]).on("zoom", (e) => {
-      const k = e.transform.k;
-      const invK = 1 / k;
+      const k = e.transform.k, invK = 1 / k;
       zoomLayer.attr("transform", e.transform);
       drawDynamicGrid(e.transform);
-      nodeLayer.selectAll(".node-bg").attr("r", 15 * invK).attr("stroke-width", 2 * invK);
+      nodeLayer.selectAll("circle.node-bg").attr("r", 15 * invK).attr("stroke-width", 2 * invK);
+      nodeLayer.selectAll("rect.node-bg").attr("width", 30 * invK).attr("height", 30 * invK)
+        .attr("x", -15 * invK).attr("y", -15 * invK).attr("stroke-width", 2 * invK);
       nodeLayer.selectAll("text").attr("font-size", 12 * invK).attr("y", 4 * invK);
       edgeLayer.selectAll("line").attr("stroke-width", 2 * invK);
       effectLayer.selectAll("circle").attr("stroke-width", 1.5 * invK);
     });
     svg.call(zoom);
 
-    // ─── SLOW INDICATOR UI ───────────────────────────────────────────────────────
-    function updateSlowIndicator() {
-      const el = document.getElementById("slowIndicator");
-      const reasonEl = document.getElementById("slowReason");
-      const enabled = document.getElementById("sl_enable").checked;
-      if (enabled && isContending) {
-        el.classList.add("active");
-        reasonEl.textContent = `🐢 tranh chấp (${contendingCount} node) ÷${getSlowFactor()}`;
-      } else {
-        el.classList.remove("active");
-      }
-    }
-
-    // ─── SLOW FACTOR SLIDER UI ────────────────────────────────────────────────────
-    const slowFactorInput = document.getElementById("slowFactorInput");
-    const slowFactorLabel = document.getElementById("slowFactorLabel");
-    slowFactorLabel.textContent = "÷" + slowFactorInput.value;
-    slowFactorInput.addEventListener("input", (e) => {
-      slowFactorLabel.textContent = "÷" + e.target.value;
-    });
-
-    // ─── PARSER ──────────────────────────────────────────────────────────────────
     document.getElementById("btnParse").addEventListener("click", () => {
       const mapUrl = "../BPAB/intersection.net.xml";
-      fetch(mapUrl)
-        .then(r => { if (!r.ok) throw new Error("Không tìm thấy " + mapUrl); return r.text(); })
-        .then(xmlText => drawSumoMap(xmlText))
-        .catch(err => console.error("Lỗi tải bản đồ:", err));
+      fetch(mapUrl).then(r => r.ok ? r.text() : "").then(xmlText => drawSumoMap(xmlText)).catch(e => console.log(e));
 
       const text = document.getElementById("logArea").value.trim();
       if (!text) { alert("Please paste log data!"); return; }
 
-      events = [];
-      nodePositions = {};
-
+      events = []; nodePositions = {};
       const lines = text.split(/\r?\n/);
       lines.forEach(rawLine => {
         const line = rawLine.trim();
         if (!line || line.startsWith("Time")) return;
-        const parts = line.split('\t');
-        if (parts.length < 4) return;
-        const timeVal = parseFloat(parts[0]);
-        if (isNaN(timeVal)) return;
-        const detailsRaw = parts[3];
-        if (!detailsRaw || !detailsRaw.includes("EVENT:")) return;
+        const parts = line.split('\t'); if (parts.length < 4) return;
+        const timeVal = parseFloat(parts[0]); if (isNaN(timeVal)) return;
+        const detailsRaw = parts[3]; if (!detailsRaw || !detailsRaw.includes("EVENT:")) return;
         const chunks = detailsRaw.split(/\s*\|\s*/);
         const eventName = chunks[0].replace("EVENT:", "").trim();
         let evObj = { time: timeVal, event: eventName };
         for (let i = 1; i < chunks.length; i++) {
-          const idx = chunks[i].indexOf(":");
-          if (idx === -1) continue;
+          const idx = chunks[i].indexOf(":"); if (idx === -1) continue;
           const k = chunks[i].slice(0, idx).trim().toLowerCase();
           const v = chunks[i].slice(idx + 1).trim();
           evObj[k] = isNaN(v) ? v : parseFloat(v);
         }
         events.push(evObj);
         if (eventName === "POS" && evObj.node !== undefined) {
-          nodePositions[evObj.node] = { x: evObj.x, y: -(evObj.y || 0) };
+          nodePositions[evObj.node] = { x: evObj.x, y: -(evObj.y || 0), type: (evObj.type || "VEHICLE").toUpperCase() };
         }
       });
 
-      if (events.length === 0) { alert("No valid events found!"); return; }
-
+      if (events.length === 0) return;
       events.sort((a, b) => a.time - b.time);
-      tMin = events[0].time;
-      tMax = events[events.length - 1].time;
-      currentTime = tMin;
+      tMin = events[0].time; tMax = events[events.length - 1].time; currentTime = tMin;
 
       const slider = document.getElementById("frameSlider");
-      slider.min = tMin; slider.max = tMax; slider.value = tMin;
-      slider.step = (tMax - tMin) / 50000; // Step nhỏ hơn để mượt
-
-      document.getElementById("parseStatus").textContent =
-        `✔ Loaded ${events.length} events  (${tMin.toFixed(2)}s – ${tMax.toFixed(2)}s)`;
-
-      lastProcessedTime = -1;
-      lastEventIndex = -1;
+      slider.min = tMin; slider.max = tMax; slider.value = tMin; slider.step = (tMax - tMin) / 50000;
+      document.getElementById("parseStatus").textContent = `✔ Loaded ${events.length} events  (${tMin.toFixed(2)}s – ${tMax.toFixed(2)}s)`;
+      lastProcessedTime = -1; lastEventIndex = -1;
       if (logDisplay) logDisplay.innerHTML = '';
 
-      initNodes();
-      updateFrame(currentTime);
+      initNodes(); updateFrame(currentTime);
     });
 
-    // ─── GRID ────────────────────────────────────────────────────────────────────
     function drawDynamicGrid(transform) {
       const svgEl = document.getElementById("svg");
-      const width = svgEl.clientWidth || 1000;
-      const height = svgEl.clientHeight || 800;
-      const xMin = (-transform.x) / transform.k;
-      const xMax = (width - transform.x) / transform.k;
-      const yMin = (-transform.y) / transform.k;
-      const yMax = (height - transform.y) / transform.k;
-      let step = 100;
-      if (transform.k <= 0.1) step = 1000;
-      else if (transform.k <= 0.5) step = 200;
-      else if (transform.k <= 2) step = 100;
-      else if (transform.k <= 5) step = 20;
-      else step = 10;
-      const gridLayer = d3.select("#grid-layer");
+      const width = svgEl.clientWidth || 1000, height = svgEl.clientHeight || 800;
+      const xMin = (-transform.x) / transform.k, xMax = (width - transform.x) / transform.k;
+      const yMin = (-transform.y) / transform.k, yMax = (height - transform.y) / transform.k;
+      let step = transform.k <= 0.1 ? 1000 : transform.k <= 0.5 ? 200 : transform.k <= 2 ? 100 : transform.k <= 5 ? 20 : 10;
+      const gridLayer = d3.select("#grid-layer"), invK = 1 / transform.k;
       gridLayer.selectAll("*").remove();
-      const invK = 1 / transform.k;
-      const startX = Math.floor(xMin / step) * step;
-      const endX = Math.ceil(xMax / step) * step;
-      const startY = Math.floor(yMin / step) * step;
-      const endY = Math.ceil(yMax / step) * step;
+      const startX = Math.floor(xMin / step) * step, endX = Math.ceil(xMax / step) * step;
+      const startY = Math.floor(yMin / step) * step, endY = Math.ceil(yMax / step) * step;
       for (let x = startX; x <= endX; x += step) {
-        gridLayer.append("line").attr("x1", x).attr("y1", startY).attr("x2", x).attr("y2", endY)
-          .attr("stroke", x === 0 ? "#95a5a6" : "#ecf0f1")
-          .attr("stroke-width", x === 0 ? 2 * invK : 1 * invK)
-          .attr("stroke-dasharray", x === 0 ? "" : (`${5 * invK},${5 * invK}`));
-        gridLayer.append("text").attr("x", x).attr("y", yMin + 15 * invK).text(x)
-          .attr("fill", "#bdc3c7").attr("font-size", 12 * invK).attr("text-anchor", "middle");
+        gridLayer.append("line").attr("x1", x).attr("y1", startY).attr("x2", x).attr("y2", endY).attr("stroke", x === 0 ? "#95a5a6" : "#ecf0f1").attr("stroke-width", x === 0 ? 2 * invK : 1 * invK).attr("stroke-dasharray", x === 0 ? "" : (`${5 * invK},${5 * invK}`));
+        gridLayer.append("text").attr("x", x).attr("y", yMin + 15 * invK).text(x).attr("fill", "#bdc3c7").attr("font-size", 12 * invK).attr("text-anchor", "middle");
       }
       for (let y = startY; y <= endY; y += step) {
-        gridLayer.append("line").attr("x1", startX).attr("y1", y).attr("x2", endX).attr("y2", y)
-          .attr("stroke", y === 0 ? "#95a5a6" : "#ecf0f1")
-          .attr("stroke-width", y === 0 ? 2 * invK : 1 * invK)
-          .attr("stroke-dasharray", y === 0 ? "" : (`${5 * invK},${5 * invK}`));
-        gridLayer.append("text").attr("x", xMin + 5 * invK).attr("y", y - 5 * invK)
-          .text(-y === 0 ? 0 : -y)
-          .attr("fill", "#bdc3c7").attr("font-size", 12 * invK).attr("text-anchor", "start");
+        gridLayer.append("line").attr("x1", startX).attr("y1", y).attr("x2", endX).attr("y2", y).attr("stroke", y === 0 ? "#95a5a6" : "#ecf0f1").attr("stroke-width", y === 0 ? 2 * invK : 1 * invK).attr("stroke-dasharray", y === 0 ? "" : (`${5 * invK},${5 * invK}`));
+        gridLayer.append("text").attr("x", xMin + 5 * invK).attr("y", y - 5 * invK).text(-y === 0 ? 0 : -y).attr("fill", "#bdc3c7").attr("font-size", 12 * invK).attr("text-anchor", "start");
       }
     }
 
-    // ─── INIT NODES ──────────────────────────────────────────────────────────────
     function initNodes() {
       nodeLayer.selectAll("*").remove();
       const nodeGroups = nodeLayer.selectAll("g")
         .data(Object.entries(nodePositions))
         .enter().append("g")
         .attr("transform", d => `translate(${d[1].x},${d[1].y})`);
-      nodeGroups.append("circle").attr("class", "node-bg").attr("r", 15)
-        .attr("fill", "#bdc3c7").attr("stroke", "#7f8c8d").attr("stroke-width", 2);
+
+      nodeGroups.each(function (d) {
+        if (d[1].type === "RSU") {
+          d3.select(this).append("rect").attr("class", "node-bg").attr("width", 30).attr("height", 30).attr("x", -15).attr("y", -15)
+            .attr("fill", "#bdc3c7").attr("stroke", "#7f8c8d").attr("stroke-width", 2);
+        } else {
+          d3.select(this).append("circle").attr("class", "node-bg").attr("r", 15)
+            .attr("fill", "#bdc3c7").attr("stroke", "#7f8c8d").attr("stroke-width", 2);
+        }
+      });
       nodeGroups.append("text").text(d => d[0]).attr("y", 4)
         .attr("text-anchor", "middle").attr("font-size", 12).attr("fill", "white").attr("font-weight", "bold");
-      svg.transition().duration(750).call(
-        zoom.transform, d3.zoomIdentity.translate(200, 200).scale(1.2)
-      );
+      svg.transition().duration(750).call(zoom.transform, d3.zoomIdentity.translate(200, 200).scale(1.2));
     }
 
-    // ─── STATE COLOR ─────────────────────────────────────────────────────────────
     function getStateColor(state, isWinner) {
       if (isWinner) return "#ffd700";
-      if (state === "CONTENDING") return "#f1c40f";
+      if (state === "CONTENDING" || state === "INTER_CONTENDING") return "#f1c40f";
       if (state === "WAIT_ACK") return "#9b59b6";
       if (state && state.includes("WAIT")) return "#3498db";
       if (state === "PRE_CTB") return "#e67e22";
       return "#bdc3c7";
     }
 
-    // ─── UPDATE FRAME ────────────────────────────────────────────────────────────
     function updateFrame(t) {
       t = Math.max(tMin, Math.min(tMax, t));
       currentTime = t;
@@ -585,67 +444,108 @@
       const invK = 1 / tf.k;
 
       let latestStates = {}, latestWinners = {}, latestPos = {};
-      let nodeToSrc = {}, activeContentions = {};
+      let nodeToSrc = {}, nodeBranch = {};
+      let activeContentions = {}, currentInterSrc = null;
+      let rsuCompleted = {}; // <--- LƯU TRẠNG THÁI RSU ĐÃ XONG NHIỆM VỤ
 
       events.forEach(e => {
         if (e.time > t) return;
-        if (e.event === "POS" && e.node !== undefined)
-          latestPos[e.node] = { x: e.x, y: -(e.y || 0) };
+        if (e.event === "POS" && e.node !== undefined) latestPos[e.node] = { x: e.x, y: -(e.y || 0) };
         if (e.event === "STATE" && e.node !== undefined) {
           latestStates[e.node] = e.state;
           if (e.state === "IDLE" || e.state === "WAIT_CTB") latestWinners[e.node] = false;
         }
-        if (e.event === "WINNER" && e.node !== undefined) latestWinners[e.node] = true;
-        if (e.event === "RCV_DATA" && e.status === "SUCCESS" && e.node !== undefined) latestWinners[e.node] = false;
+        if (e.event === "WINNER" || e.event === "INTER_OPPOSITE_WINNER" || e.event === "INTER_CROSS_WINNER_CANDIDATE") {
+          if (e.node !== undefined) latestWinners[e.node] = true;
+        }
+        if (e.event === "RCV_DATA" && e.status === "SUCCESS_RELAY" && e.node !== undefined) latestWinners[e.node] = false;
+
+        // <--- BẮT EVENT RSU ĐÃ NHẬN GÓI TIN THÀNH CÔNG
+        if (e.event === "RSU_MISSION_COMPLETE" && e.node !== undefined) {
+          rsuCompleted[e.node] = true;
+        }
+
+        if (e.event === "SEND_RTB_INTER") {
+          currentInterSrc = e.node;
+          if (!activeContentions[currentInterSrc]) activeContentions[currentInterSrc] = {};
+        }
+
         if (e.event === "JOIN_BPAB" && e.node !== undefined && e.src !== undefined) {
-          nodeToSrc[e.node] = e.src;
+          nodeToSrc[e.node] = e.src; nodeBranch[e.node] = "NORMAL";
           if (!activeContentions[e.src]) activeContentions[e.src] = {};
-          activeContentions[e.src].direction = (e.dir || "EAST").toUpperCase();
-          activeContentions[e.src].maxR = parseFloat(e.maxr || 300);
-          activeContentions[e.src].widthW = parseFloat(e.width || 50);
-          if (!activeContentions[e.src].frozenPos) {
-            const p = latestPos[e.src] || nodePositions[e.src];
-            if (p) activeContentions[e.src].frozenPos = { x: p.x, y: p.y };
+          activeContentions[e.src]["NORMAL"] = {
+            direction: (e.dir || "EAST").toUpperCase(), maxR: parseFloat(e.maxr || 400), widthW: parseFloat(e.width || 50), frozenPos: latestPos[e.src] || nodePositions[e.src]
+          };
+        }
+
+        if (e.event === "INTER_JOIN_OPPOSITE" || e.event === "INTER_JOIN_CROSS") {
+          if (currentInterSrc !== null) {
+            nodeToSrc[e.node] = currentInterSrc;
+            let branch = (e.branch || "").toUpperCase();
+            nodeBranch[e.node] = branch;
+            if (!activeContentions[currentInterSrc]) activeContentions[currentInterSrc] = {};
+            if (!activeContentions[currentInterSrc][branch]) {
+              activeContentions[currentInterSrc][branch] = {
+                direction: branch, maxR: 400, widthW: 50, frozenPos: latestPos[currentInterSrc] || nodePositions[currentInterSrc]
+              };
+            }
           }
         }
+
         if (e.event === "CONTENSION_ROUND" && e.node !== undefined && e.range !== undefined) {
-          const src = nodeToSrc[e.node];
-          if (src !== undefined) {
+          let src = nodeToSrc[e.node], branch = nodeBranch[e.node] || "NORMAL";
+          if (src !== undefined && activeContentions[src] && activeContentions[src][branch]) {
             const match = String(e.range).match(/\[([\d.]+)\s*,\s*([\d.]+)\]/);
             if (match) {
-              activeContentions[src] = {
-                ...activeContentions[src],
-                l: parseFloat(match[1]), u: parseFloat(match[2]),
-                time: e.time, round: parseInt(e.round || 0)
-              };
+              activeContentions[src][branch].l = parseFloat(match[1]);
+              activeContentions[src][branch].u = parseFloat(match[2]);
+              activeContentions[src][branch].time = e.time;
+              activeContentions[src][branch].round = parseInt(e.round || 0);
+            }
+          }
+        }
+
+        if (e.event === "INTER_CROSS_SLOT" && e.node !== undefined && e.range !== undefined) {
+          let src = nodeToSrc[e.node], branch = (e.branch || "").toUpperCase();
+          if (src !== undefined && activeContentions[src] && activeContentions[src][branch]) {
+            const match = String(e.range).match(/\[([\d.]+)\s*,\s*([\d.]+)\]/);
+            if (match) {
+              activeContentions[src][branch].l = parseFloat(match[1]);
+              activeContentions[src][branch].u = parseFloat(match[2]);
+              activeContentions[src][branch].time = e.time;
+              activeContentions[src][branch].round = parseInt(e.iter || 0);
             }
           }
         }
       });
 
-      // ── Cập nhật cờ auto-slow dựa trên latestStates ──────────────────────────
-      contendingCount = Object.values(latestStates)
-        .filter(s => CONTENDING_STATES.has(s)).length;
+      contendingCount = Object.values(latestStates).filter(s => CONTENDING_STATES.has(s)).length;
       isContending = contendingCount > 0;
 
-      // ── Move nodes ───────────────────────────────────────────────────────────
       nodeLayer.selectAll("g").each(function (d) {
         const nid = parseInt(d[0]);
         const pos = latestPos[nid] || nodePositions[nid];
         if (pos) d3.select(this).attr("transform", `translate(${pos.x},${pos.y})`);
-        const st = latestStates[nid] || "IDLE";
-        const isWin = latestWinners[nid] || false;
-        d3.select(this).select("circle")
-          .attr("fill", getStateColor(st, isWin))
-          .attr("stroke-width", 2 * invK);
+
+        const st = latestStates[nid] || "IDLE", isWin = latestWinners[nid] || false;
+        let color = getStateColor(st, isWin);
+
+        // NẾU RSU ĐÃ XONG NHIỆM VỤ THÌ GHI ĐÈ BẰNG MÀU CAM KHÔNG TẮT NỮA
+        if (rsuCompleted[nid]) {
+          color = "#d35400"; // Cam đậm
+        }
+
+        const type = (nodePositions[nid].type || "VEHICLE");
+        if (type === "RSU") {
+          d3.select(this).select("rect.node-bg").attr("fill", color).attr("stroke-width", 2 * invK)
+            .attr("width", 30 * invK).attr("height", 30 * invK).attr("x", -15 * invK).attr("y", -15 * invK);
+        } else {
+          d3.select(this).select("circle.node-bg").attr("fill", color).attr("stroke-width", 2 * invK).attr("r", 15 * invK);
+        }
       });
 
-      // ── Log panel ────────────────────────────────────────────────────────────
       let currentIndex = -1;
-      for (let i = 0; i < events.length; i++) {
-        if (events[i].time <= t) currentIndex = i;
-        else break;
-      }
+      for (let i = 0; i < events.length; i++) { if (events[i].time <= t) currentIndex = i; else break; }
       if (t < lastProcessedTime || t - lastProcessedTime > 2) {
         if (logDisplay) logDisplay.innerHTML = '';
         for (let i = 0; i <= currentIndex; i++) {
@@ -658,353 +558,263 @@
           if (narrative) appendSubtitle(narrative, false);
         }
       }
-      lastProcessedTime = t;
-      lastEventIndex = currentIndex;
+      lastProcessedTime = t; lastEventIndex = currentIndex;
 
-      effectLayer.selectAll("*").remove();
-      edgeLayer.selectAll("*").remove();
+      effectLayer.selectAll("*").remove(); edgeLayer.selectAll("*").remove();
 
-      // ── BPAB contention rectangles ───────────────────────────────────────────
-      // Hiệu ứng Fade lưu lại lâu hơn khi đang slow motion
-      const contendFadeWindow = isContending ? FADE_WINDOW * getSlowFactor() : FADE_WINDOW;
+      const contendFadeWindow = isContending ? 0.0025 : 0.5;
 
       Object.keys(activeContentions).forEach(srcId => {
-        const cont = activeContentions[srcId];
-        if (!cont.time) return;
-        const age = t - cont.time;
-        if (age < 0 || age >= contendFadeWindow) return;
+        Object.keys(activeContentions[srcId]).forEach(branchKey => {
+          const cont = activeContentions[srcId][branchKey];
+          if (!cont.time) return;
+          const age = t - cont.time;
+          if (age < 0 || age >= contendFadeWindow) return;
 
-        const srcNode = cont.frozenPos || latestPos[srcId] || nodePositions[srcId];
-        if (!srcNode) return;
+          const srcNode = cont.frozenPos;
+          if (!srcNode) return;
 
-        const alpha = Math.max(0, 1 - age / contendFadeWindow);
-        const L = cont.l, U = cont.u;
-        const direction = cont.direction || "EAST";
-        const MaxR = cont.maxR || 300;
-        const W = cont.widthW || 50;
-        const Mid = (L + U) / 2;
+          const alpha = Math.max(0, 1 - age / contendFadeWindow);
+          const L = cont.l, U = cont.u, direction = cont.direction || "EAST";
+          const MaxR = cont.maxR || 400, W = cont.widthW || 50, Mid = (L + U) / 2;
+          let baseRect = {}, elimLower = {}, elimUpper = {}, activeRect = {}, midLine = {}, textPos = {};
 
-        let baseRect = {}, elimLower = {}, elimUpper = {}, activeRect = {}, midLine = {}, textPos = {};
-        switch (direction) {
-          case 'EAST':
-            baseRect = { x: srcNode.x, y: srcNode.y - W / 2, w: MaxR, h: W };
-            elimLower = { x: srcNode.x, y: srcNode.y - W / 2, w: L, h: W };
-            elimUpper = { x: srcNode.x + U, y: srcNode.y - W / 2, w: Math.max(0, MaxR - U), h: W };
-            activeRect = { x: srcNode.x + L, y: srcNode.y - W / 2, w: U - L, h: W };
-            midLine = { x1: srcNode.x + Mid, y1: srcNode.y - W / 2, x2: srcNode.x + Mid, y2: srcNode.y + W / 2 };
-            textPos = { x: srcNode.x + MaxR + 25 * invK, y: srcNode.y };
-            break;
-          case 'WEST':
-            baseRect = { x: srcNode.x - MaxR, y: srcNode.y - W / 2, w: MaxR, h: W };
-            elimLower = { x: srcNode.x - L, y: srcNode.y - W / 2, w: L, h: W };
-            elimUpper = { x: srcNode.x - MaxR, y: srcNode.y - W / 2, w: Math.max(0, MaxR - U), h: W };
-            activeRect = { x: srcNode.x - U, y: srcNode.y - W / 2, w: U - L, h: W };
-            midLine = { x1: srcNode.x - Mid, y1: srcNode.y - W / 2, x2: srcNode.x - Mid, y2: srcNode.y + W / 2 };
-            textPos = { x: srcNode.x - MaxR - 25 * invK, y: srcNode.y };
-            break;
-          case 'NORTH':
-            baseRect = { x: srcNode.x - W / 2, y: srcNode.y - MaxR, w: W, h: MaxR };
-            elimLower = { x: srcNode.x - W / 2, y: srcNode.y - L, w: W, h: L };
-            elimUpper = { x: srcNode.x - W / 2, y: srcNode.y - MaxR, w: W, h: Math.max(0, MaxR - U) };
-            activeRect = { x: srcNode.x - W / 2, y: srcNode.y - U, w: W, h: U - L };
-            midLine = { x1: srcNode.x - W / 2, y1: srcNode.y - Mid, x2: srcNode.x + W / 2, y2: srcNode.y - Mid };
-            textPos = { x: srcNode.x, y: srcNode.y - MaxR - 15 * invK };
-            break;
-          case 'SOUTH':
-            baseRect = { x: srcNode.x - W / 2, y: srcNode.y, w: W, h: MaxR };
-            elimLower = { x: srcNode.x - W / 2, y: srcNode.y, w: W, h: L };
-            elimUpper = { x: srcNode.x - W / 2, y: srcNode.y + U, w: W, h: Math.max(0, MaxR - U) };
-            activeRect = { x: srcNode.x - W / 2, y: srcNode.y + L, w: W, h: U - L };
-            midLine = { x1: srcNode.x - W / 2, y1: srcNode.y + Mid, x2: srcNode.x + W / 2, y2: srcNode.y + Mid };
-            textPos = { x: srcNode.x, y: srcNode.y + MaxR + 15 * invK };
-            break;
-        }
+          switch (direction) {
+            case 'EAST':
+              baseRect = { x: srcNode.x, y: srcNode.y - W / 2, w: MaxR, h: W };
+              elimLower = { x: srcNode.x, y: srcNode.y - W / 2, w: L, h: W };
+              elimUpper = { x: srcNode.x + U, y: srcNode.y - W / 2, w: Math.max(0, MaxR - U), h: W };
+              activeRect = { x: srcNode.x + L, y: srcNode.y - W / 2, w: U - L, h: W };
+              midLine = { x1: srcNode.x + Mid, y1: srcNode.y - W / 2, x2: srcNode.x + Mid, y2: srcNode.y + W / 2 };
+              textPos = { x: srcNode.x + MaxR + 25 * invK, y: srcNode.y };
+              break;
+            case 'WEST':
+              baseRect = { x: srcNode.x - MaxR, y: srcNode.y - W / 2, w: MaxR, h: W };
+              elimLower = { x: srcNode.x - L, y: srcNode.y - W / 2, w: L, h: W };
+              elimUpper = { x: srcNode.x - MaxR, y: srcNode.y - W / 2, w: Math.max(0, MaxR - U), h: W };
+              activeRect = { x: srcNode.x - U, y: srcNode.y - W / 2, w: U - L, h: W };
+              midLine = { x1: srcNode.x - Mid, y1: srcNode.y - W / 2, x2: srcNode.x - Mid, y2: srcNode.y + W / 2 };
+              textPos = { x: srcNode.x - MaxR - 25 * invK, y: srcNode.y };
+              break;
+            case 'NORTH':
+              baseRect = { x: srcNode.x - W / 2, y: srcNode.y - MaxR, w: W, h: MaxR };
+              elimLower = { x: srcNode.x - W / 2, y: srcNode.y - L, w: W, h: L };
+              elimUpper = { x: srcNode.x - W / 2, y: srcNode.y - MaxR, w: W, h: Math.max(0, MaxR - U) };
+              activeRect = { x: srcNode.x - W / 2, y: srcNode.y - U, w: W, h: U - L };
+              midLine = { x1: srcNode.x - W / 2, y1: srcNode.y - Mid, x2: srcNode.x + W / 2, y2: srcNode.y - Mid };
+              textPos = { x: srcNode.x, y: srcNode.y - MaxR - 15 * invK };
+              break;
+            case 'SOUTH':
+              baseRect = { x: srcNode.x - W / 2, y: srcNode.y, w: W, h: MaxR };
+              elimLower = { x: srcNode.x - W / 2, y: srcNode.y, w: W, h: L };
+              elimUpper = { x: srcNode.x - W / 2, y: srcNode.y + U, w: W, h: Math.max(0, MaxR - U) };
+              activeRect = { x: srcNode.x - W / 2, y: srcNode.y + L, w: W, h: U - L };
+              midLine = { x1: srcNode.x - W / 2, y1: srcNode.y + Mid, x2: srcNode.x + W / 2, y2: srcNode.y + Mid };
+              textPos = { x: srcNode.x, y: srcNode.y + MaxR + 15 * invK };
+              break;
+          }
 
-        effectLayer.append("rect")
-          .attr("x", baseRect.x).attr("y", baseRect.y).attr("width", baseRect.w).attr("height", baseRect.h)
-          .attr("fill", "none").attr("stroke", "#34495e").attr("stroke-width", 1.5 * invK)
-          .attr("stroke-dasharray", `${4 * invK},${4 * invK}`).attr("opacity", alpha);
-        if (activeRect.w > 0 && activeRect.h > 0)
-          effectLayer.append("rect")
-            .attr("x", activeRect.x).attr("y", activeRect.y).attr("width", activeRect.w).attr("height", activeRect.h)
-            .attr("fill", "rgba(46,204,113,0.2)").attr("opacity", alpha);
-        const drawGray = r => {
-          if (r.w > 0 && r.h > 0)
-            effectLayer.append("rect")
-              .attr("x", r.x).attr("y", r.y).attr("width", r.w).attr("height", r.h)
-              .attr("fill", "rgba(189,195,199,0.65)").attr("opacity", alpha);
-        };
-        drawGray(elimLower); drawGray(elimUpper);
-        effectLayer.append("line")
-          .attr("x1", midLine.x1).attr("y1", midLine.y1).attr("x2", midLine.x2).attr("y2", midLine.y2)
-          .attr("stroke", "#e74c3c").attr("stroke-width", 2.5 * invK).attr("opacity", alpha);
-        effectLayer.append("text")
-          .attr("x", textPos.x).attr("y", textPos.y)
-          .text(`${direction} R${cont.round}: [${L.toFixed(0)}-${U.toFixed(0)}]`)
-          .attr("fill", "#27ae60").attr("font-size", 12 * invK).attr("font-weight", "bold")
-          .attr("text-anchor", "middle").attr("opacity", alpha);
+          effectLayer.append("rect").attr("x", baseRect.x).attr("y", baseRect.y).attr("width", baseRect.w).attr("height", baseRect.h)
+            .attr("fill", "none").attr("stroke", "#34495e").attr("stroke-width", 1.5 * invK)
+            .attr("stroke-dasharray", `${4 * invK},${4 * invK}`).attr("opacity", alpha);
+          if (activeRect.w > 0 && activeRect.h > 0)
+            effectLayer.append("rect").attr("x", activeRect.x).attr("y", activeRect.y).attr("width", activeRect.w).attr("height", activeRect.h)
+              .attr("fill", "rgba(46,204,113,0.2)").attr("opacity", alpha);
+          const drawGray = r => {
+            if (r.w > 0 && r.h > 0) effectLayer.append("rect").attr("x", r.x).attr("y", r.y).attr("width", r.w).attr("height", r.h).attr("fill", "rgba(189,195,199,0.65)").attr("opacity", alpha);
+          };
+          drawGray(elimLower); drawGray(elimUpper);
+          effectLayer.append("line").attr("x1", midLine.x1).attr("y1", midLine.y1).attr("x2", midLine.x2).attr("y2", midLine.y2)
+            .attr("stroke", "#e74c3c").attr("stroke-width", 2.5 * invK).attr("opacity", alpha);
+          effectLayer.append("text").attr("x", textPos.x).attr("y", textPos.y)
+            .text(`${direction} R${cont.round}: [${L.toFixed(0)}-${U.toFixed(0)}]`)
+            .attr("fill", "#27ae60").attr("font-size", 12 * invK).attr("font-weight", "bold").attr("text-anchor", "middle").attr("opacity", alpha);
+        });
       });
 
-      // ── Waves and arrows ─────────────────────────────────────────────────────
       const activeFade = isContending ? FADE_WINDOW * getSlowFactor() : FADE_WINDOW;
       const activeEvents = events.filter(e => e.time <= t && e.time > t - activeFade);
 
       activeEvents.forEach(e => {
-        const age = t - e.time;
-        const alpha = Math.max(0, 1 - age / activeFade);
-
-        if (e.event === "SEND_BB") {
+        const age = t - e.time, alpha = Math.max(0, 1 - age / activeFade);
+        if (e.event === "SEND_BB" || e.event === "INTER_SEND_BB" || e.event === "INTER_CROSS_SEND_BB") {
           const src = latestPos[e.node] || nodePositions[e.node];
           if (!src) return;
           [1, 2, 3].forEach(i => {
-            effectLayer.append("circle")
-              .attr("cx", src.x).attr("cy", src.y).attr("r", 20 * i + (age / activeFade) * 100)
-              .attr("fill", "none").attr("stroke", "black").attr("stroke-width", 2)
-              .attr("opacity", alpha * (0.6 - i * 0.1));
+            effectLayer.append("circle").attr("cx", src.x).attr("cy", src.y).attr("r", 20 * i + (age / activeFade) * 100)
+              .attr("fill", "none").attr("stroke", "black").attr("stroke-width", 2).attr("opacity", alpha * (0.6 - i * 0.1));
           });
         }
+        if (e.event === "SEND_RTB" || e.event === "SEND_CTB" || e.event === "SEND_DATA" || e.event === "SEND" ||
+          e.event === "SEND_RTB_INTER" || e.event === "RSU_SEND_CTB" || e.event === "INTER_SEND_CTB" ||
+          e.event === "INTER_BROADCAST_DATA" || e.event === "RSU_SEND_ACK") {
 
-        if (e.event === "SEND_RTB" || e.event === "SEND_CTB" || e.event === "SEND_DATA" || e.event === "SEND") {
-          const srcId = e.from !== undefined ? e.from : e.node;
+          const srcId = e.from !== undefined ? e.from : (e.rsu !== undefined ? e.rsu : e.node);
+          const toId = e.to !== undefined ? e.to : (e.relay !== undefined ? e.relay : "");
           const src = latestPos[srcId] || nodePositions[srcId];
           if (!src) return;
+
           let pType = "";
-          if (e.event === "SEND_RTB") pType = "RTB";
-          else if (e.event === "SEND_CTB") pType = "CTB";
-          else if (e.event === "SEND_DATA") pType = "DATA";
+          if (e.event.includes("RTB")) pType = "RTB";
+          else if (e.event.includes("CTB")) pType = "CTB";
+          else if (e.event.includes("DATA")) pType = "DATA";
+          else if (e.event.includes("ACK")) pType = "ACK";
           else pType = (e.type || "DATA").toUpperCase();
+
           let color = "#3498db", marker = "url(#arrow-blue)";
           if (pType.includes("CTB")) { color = "#f1c40f"; marker = "url(#arrow-yellow)"; }
           if (pType.includes("DATA")) { color = "#2ecc71"; marker = "url(#arrow-green)"; }
-          const destStr = String(e.to || "").toUpperCase();
-          if (destStr === "BROADCAST") {
+          if (pType.includes("ACK")) { color = "#9b59b6"; marker = "url(#arrow-purple)"; }
+
+          const destStr = String(toId).toUpperCase();
+          if (destStr === "BROADCAST" || e.event === "SEND_RTB_INTER" || e.event === "INTER_BROADCAST_DATA") {
             [1, 2, 3].forEach(i => {
-              effectLayer.append("circle")
-                .attr("cx", src.x).attr("cy", src.y).attr("r", 40 * i + (age / activeFade) * 150)
-                .attr("fill", "none").attr("stroke", color)
-                .attr("stroke-width", pType.includes("CTB") ? 3 : 1.5)
-                .attr("stroke-dasharray", pType.includes("CTB") ? "10,5" : "5,5")
-                .attr("opacity", alpha * (1 - i * 0.15));
+              effectLayer.append("circle").attr("cx", src.x).attr("cy", src.y).attr("r", 40 * i + (age / activeFade) * 150)
+                .attr("fill", "none").attr("stroke", color).attr("stroke-width", pType.includes("CTB") ? 3 : 1.5)
+                .attr("stroke-dasharray", pType.includes("CTB") ? "10,5" : "5,5").attr("opacity", alpha * (1 - i * 0.15));
             });
-            effectLayer.append("text")
-              .attr("x", src.x).attr("y", src.y - (25 + (age / activeFade) * 20) * invK)
-              .text(pType + " (Bcast)")
-              .attr("fill", color).attr("font-size", 12 * invK).attr("font-weight", "bold")
-              .attr("text-anchor", "middle").attr("opacity", alpha);
+            effectLayer.append("text").attr("x", src.x).attr("y", src.y - (25 + (age / activeFade) * 20) * invK)
+              .text(pType + " (Bcast)").attr("fill", color).attr("font-size", 12 * invK).attr("font-weight", "bold").attr("text-anchor", "middle").attr("opacity", alpha);
           } else if (destStr !== "") {
             const destId = parseInt(destStr);
             const dest = latestPos[destId] || nodePositions[destId];
             if (!dest) return;
-            const dx = dest.x - src.x, dy = dest.y - src.y;
-            const dist = Math.sqrt(dx * dx + dy * dy);
+            const dx = dest.x - src.x, dy = dest.y - src.y, dist = Math.sqrt(dx * dx + dy * dy);
             if (dist === 0) return;
-            const shorten = 18 * invK;
-            const tx = dest.x - (dx / dist) * shorten, ty = dest.y - (dy / dist) * shorten;
-            edgeLayer.append("line")
-              .attr("x1", src.x).attr("y1", src.y).attr("x2", tx).attr("y2", ty)
-              .attr("stroke", color).attr("stroke-width", 2 * invK)
-              .attr("opacity", alpha).attr("marker-end", marker);
-            edgeLayer.append("text")
-              .attr("x", (src.x + tx) / 2).attr("y", (src.y + ty) / 2 - 8 * invK)
-              .text(pType)
-              .attr("fill", color).attr("font-size", 11 * invK).attr("font-weight", "bold")
-              .attr("text-anchor", "middle").attr("opacity", alpha);
+            const shorten = 18 * invK, tx = dest.x - (dx / dist) * shorten, ty = dest.y - (dy / dist) * shorten;
+            edgeLayer.append("line").attr("x1", src.x).attr("y1", src.y).attr("x2", tx).attr("y2", ty)
+              .attr("stroke", color).attr("stroke-width", 2 * invK).attr("opacity", alpha).attr("marker-end", marker);
+            edgeLayer.append("text").attr("x", (src.x + tx) / 2).attr("y", (src.y + ty) / 2 - 8 * invK).text(pType)
+              .attr("fill", color).attr("font-size", 11 * invK).attr("font-weight", "bold").attr("text-anchor", "middle").attr("opacity", alpha);
           }
         }
       });
     }
 
-    // ─── PLAYBACK ────────────────────────────────────────────────────────────────
     const playPauseBtn = document.getElementById("playPauseBtn");
-
-    function updatePlayPauseUI() {
-      if (playing) {
-        playPauseBtn.innerHTML = "⏸ Pause"; playPauseBtn.className = "btn pause";
-      } else {
-        playPauseBtn.innerHTML = "▶ Play"; playPauseBtn.className = "btn play";
-      }
-    }
-
-    function playSim() {
-      if (events.length === 0) return;
-      if (currentTime >= tMax) currentTime = tMin;
-      playing = true; lastRafTime = null;
-      updatePlayPauseUI();
-      animationRef = requestAnimationFrame(loop);
-    }
-
-    function pauseSim() {
-      playing = false;
-      if (animationRef) { cancelAnimationFrame(animationRef); animationRef = null; }
-      updatePlayPauseUI();
-      updateSlowIndicator();
-    }
+    function updatePlayPauseUI() { if (playing) { playPauseBtn.innerHTML = "⏸ Pause"; playPauseBtn.className = "btn pause"; } else { playPauseBtn.innerHTML = "▶ Play"; playPauseBtn.className = "btn play"; } }
+    function playSim() { if (events.length === 0) return; if (currentTime >= tMax) currentTime = tMin; playing = true; lastRafTime = null; updatePlayPauseUI(); animationRef = requestAnimationFrame(loop); }
+    function pauseSim() { playing = false; if (animationRef) { cancelAnimationFrame(animationRef); animationRef = null; } updatePlayPauseUI(); }
 
     function loop(wallTime) {
       if (!playing) return;
-
       const baseSpeed = speedLevels[parseFloat(document.getElementById("speedInput").value)];
-      const enabled = document.getElementById("sl_enable").checked;
-      const slowFactor = getSlowFactor();
-
-      const effectiveSpeed = (enabled && isContending) ? baseSpeed / slowFactor : baseSpeed;
-
-      updateSlowIndicator();
+      const enabled = true; // Auto-slow is silently enabled by default
+      const slowFactor = getSlowFactor(), effectiveSpeed = (enabled && isContending) ? baseSpeed / slowFactor : baseSpeed;
 
       if (lastRafTime !== null) {
         const wallDelta = (wallTime - lastRafTime) / 1000;
         let proposedNextTime = currentTime + (wallDelta * effectiveSpeed);
-
-        // --- CÁCH KHẮC PHỤC "NHẢY CÓC" (TUNNELING) ---
-        // Nếu hiện đang không ở trạng thái slow-mo, nhưng một sự kiện trigger làm
-        // bùng nổ tranh chấp sắp xảy ra trong bước nhảy tiếp theo -> Dừng cứng ở sự kiện đó
         if (enabled && !isContending) {
-          const triggerEvent = events.find(e =>
-            e.time > currentTime &&
-            e.time <= proposedNextTime &&
-            e.event === "STATE" &&
-            CONTENDING_STATES.has(e.state)
-          );
-          if (triggerEvent) {
-            proposedNextTime = triggerEvent.time; // Snap chính xác thời gian bắt đầu contention
-          }
+          const triggerEvent = events.find(e => e.time > currentTime && e.time <= proposedNextTime && e.event === "STATE" && CONTENDING_STATES.has(e.state));
+          if (triggerEvent) proposedNextTime = triggerEvent.time;
         }
-
         currentTime = proposedNextTime;
       }
       lastRafTime = wallTime;
-
-      if (currentTime >= tMax) {
-        currentTime = tMax;
-        updateFrame(currentTime);
-        pauseSim();
-        return;
-      }
-
+      if (currentTime >= tMax) { currentTime = tMax; updateFrame(currentTime); pauseSim(); return; }
       updateFrame(currentTime);
       animationRef = requestAnimationFrame(loop);
     }
 
     playPauseBtn.addEventListener("click", () => { if (playing) pauseSim(); else playSim(); });
-
-    // Step: nhảy đến lần đổi trạng thái CONTENDING tiếp theo
     document.getElementById("stepBtn").addEventListener("click", () => {
-      pauseSim();
-      const next = events.find(e =>
-        e.time > currentTime &&
-        e.event === "STATE" &&
-        CONTENDING_STATES.has(e.state)
-      );
-      if (next) {
-        currentTime = next.time;
-        updateFrame(currentTime);
-      }
+      pauseSim(); const next = events.find(e => e.time > currentTime && e.event === "STATE" && CONTENDING_STATES.has(e.state));
+      if (next) { currentTime = next.time; updateFrame(currentTime); }
     });
+    document.getElementById("frameSlider").addEventListener("input", e => { pauseSim(); currentTime = parseFloat(e.target.value); if (events.length > 0) updateFrame(currentTime); });
+    document.getElementById("speedInput").addEventListener("input", (e) => { document.getElementById("speedLabel").innerText = speedLevels[parseInt(e.target.value)] + "x"; });
 
-    document.getElementById("frameSlider").addEventListener("input", e => {
-      pauseSim();
-      currentTime = parseFloat(e.target.value);
-      if (events.length > 0) updateFrame(currentTime);
-    });
-
-    document.getElementById("speedInput").addEventListener("input", (e) => {
-      let index = parseInt(e.target.value);
-      const playSpeed = speedLevels[index];
-      document.getElementById("speedLabel").innerText = playSpeed + "x";
-    });
-
-    // ─── SUMO MAP ────────────────────────────────────────────────────────────────
     function drawSumoMap(xmlText) {
-      const parser = new DOMParser();
-      const xmlDoc = parser.parseFromString(xmlText, "text/xml");
-      mapLayer.selectAll("*").remove();
+      const parser = new DOMParser(), xmlDoc = parser.parseFromString(xmlText, "text/xml"); mapLayer.selectAll("*").remove();
       const edges = xmlDoc.getElementsByTagName("edge");
       for (let i = 0; i < edges.length; i++) {
         const lanes = edges[i].getElementsByTagName("lane");
         for (let j = 0; j < lanes.length; j++) {
-          const lane = lanes[j]; const shapeStr = lane.getAttribute("shape");
-          if (!shapeStr) continue;
-          const laneWidth = parseFloat(lane.getAttribute("width") || 3.2);
-          const points = shapeStr.split(" ").map(pt => { let c = pt.split(","); return [parseFloat(c[0]), -parseFloat(c[1])]; });
-          mapLayer.append("polyline").attr("points", points.map(p => p.join(",")).join(" "))
-            .attr("fill", "none").attr("stroke", "#333").attr("stroke-width", laneWidth);
+          const shapeStr = lanes[j].getAttribute("shape"); if (!shapeStr) continue;
+          const laneWidth = parseFloat(lanes[j].getAttribute("width") || 3.2), points = shapeStr.split(" ").map(pt => { let c = pt.split(","); return [parseFloat(c[0]), -parseFloat(c[1])]; });
+          mapLayer.append("polyline").attr("points", points.map(p => p.join(",")).join(" ")).attr("fill", "none").attr("stroke", "#333").attr("stroke-width", laneWidth);
         }
       }
       for (let i = 0; i < edges.length; i++) {
-        const edge = edges[i];
-        if (edge.getAttribute("function") === "internal") continue;
-        const lanes = edge.getElementsByTagName("lane");
-        let maxIndex = -1;
+        if (edges[i].getAttribute("function") === "internal") continue;
+        const lanes = edges[i].getElementsByTagName("lane"); let maxIndex = -1;
         for (let j = 0; j < lanes.length; j++) { let idx = parseInt(lanes[j].getAttribute("index")); if (idx > maxIndex) maxIndex = idx; }
         for (let j = 0; j < lanes.length; j++) {
-          const lane = lanes[j]; const shapeStr = lane.getAttribute("shape");
-          if (!shapeStr) continue;
-          let idx = parseInt(lane.getAttribute("index"));
-          const laneWidth = parseFloat(lane.getAttribute("width") || 3.2);
-          const points = shapeStr.split(" ").map(pt => { let c = pt.split(","); return [parseFloat(c[0]), -parseFloat(c[1])]; });
-          const offset = laneWidth / 2;
+          const shapeStr = lanes[j].getAttribute("shape"); if (!shapeStr) continue;
+          let idx = parseInt(lanes[j].getAttribute("index")); const laneWidth = parseFloat(lanes[j].getAttribute("width") || 3.2);
+          const points = shapeStr.split(" ").map(pt => { let c = pt.split(","); return [parseFloat(c[0]), -parseFloat(c[1])]; }), offset = laneWidth / 2;
           for (let k = 0; k < points.length - 1; k++) {
-            let p1 = points[k], p2 = points[k + 1];
-            let dx = p2[0] - p1[0], dy = p2[1] - p1[1], len = Math.sqrt(dx * dx + dy * dy);
-            if (len === 0) continue;
-            let nx = dy / len, ny = -dx / len;
-            let x1 = p1[0] + nx * offset, y1 = p1[1] + ny * offset, x2 = p2[0] + nx * offset, y2 = p2[1] + ny * offset;
+            let p1 = points[k], p2 = points[k + 1], dx = p2[0] - p1[0], dy = p2[1] - p1[1], len = Math.sqrt(dx * dx + dy * dy); if (len === 0) continue;
+            let nx = dy / len, ny = -dx / len, x1 = p1[0] + nx * offset, y1 = p1[1] + ny * offset, x2 = p2[0] + nx * offset, y2 = p2[1] + ny * offset;
             const isCenterLine = (idx === maxIndex);
-            mapLayer.append("line").attr("x1", x1).attr("y1", y1).attr("x2", x2).attr("y2", y2)
-              .attr("stroke", isCenterLine ? "#f1c40f" : "#ffffff").attr("stroke-width", 0.5)
-              .attr("stroke-dasharray", isCenterLine ? "none" : "7,7");
+            mapLayer.append("line").attr("x1", x1).attr("y1", y1).attr("x2", x2).attr("y2", y2).attr("stroke", isCenterLine ? "#f1c40f" : "#ffffff").attr("stroke-width", 0.5).attr("stroke-dasharray", isCenterLine ? "none" : "7,7");
           }
         }
       }
       const junctions = xmlDoc.getElementsByTagName("junction");
       for (let i = 0; i < junctions.length; i++) {
-        const junc = junctions[i];
-        if (junc.getAttribute("type") === "internal" || junc.getAttribute("type") === "dead_end") continue;
+        const junc = junctions[i]; if (junc.getAttribute("type") === "internal" || junc.getAttribute("type") === "dead_end") continue;
         const shapeStr = junc.getAttribute("shape"); if (!shapeStr) continue;
         const points = shapeStr.split(" ").map(pt => { let c = pt.split(","); return [parseFloat(c[0]), -parseFloat(c[1])]; });
-        mapLayer.append("polygon").attr("points", points.map(p => p.join(",")).join(" "))
-          .attr("fill", "rgba(52,152,219,0.15)").attr("stroke", "#3498db").attr("stroke-width", 1);
+        mapLayer.append("polygon").attr("points", points.map(p => p.join(",")).join(" ")).attr("fill", "rgba(52,152,219,0.15)").attr("stroke", "#3498db").attr("stroke-width", 1);
       }
     }
 
-    // ─── NARRATIVE ───────────────────────────────────────────────────────────────
     function translateLogToNarrative(e) {
-      const time = e.time.toFixed(4);
-      let text = "", styleClass = "cap-info";
-      if (e.event === "APP_SEND") { text = `📱 <b>Tầng App Xe ${e.node}</b> gửi tin khẩn cấp: <i>"${e.payload || ''}"</i>.`; styleClass = "cap-data"; }
-      else if (e.event === "SEND_RTB") { text = `🔊 <b>Xe ${e.from !== undefined ? e.from : e.node}</b> gửi RTB bắt đầu tranh chấp.`; styleClass = "cap-contend"; }
-      else if (e.event === "SEND_CTB") { text = `🔊 <b>Xe ${e.from !== undefined ? e.from : e.node}</b> gửi CTB xác nhận relay.`; styleClass = "cap-contend"; }
-      else if (e.event === "JOIN_BPAB") { text = `🚗 <b>Xe ${e.node}</b> nhận RTB từ xe ${e.src}, tham gia tranh chấp.`; styleClass = "cap-contend"; }
-      else if (e.event === "CONTENSION_ROUND") { text = `🔄 <b>Xe ${e.node}</b> bắt đầu Vòng phân chia nhị phân thứ ${e.round || 0} (${e.range || 'hiện tại'}).`; styleClass = "cap-info"; }
-      else if (e.event === "SEND_BB") { text = `⚡ <b>Xe ${e.node}</b> ${e.dist !== undefined ? `(cách ${e.dist}m) ` : ''}ở nửa vùng xa, phát BB.`; styleClass = "cap-contend"; }
-      else if (e.event === "DROP_OUT") { text = `🛑 <b>Xe ${e.node}</b> ở vùng gần, nghe thấy BB của xe xa hơn nên rút lui.`; styleClass = "cap-info"; }
-      else if (e.event === "ITERATION_KEEP") { let a = e.action === "SHRINK_UPPER" ? "thu hẹp cận trên" : "thu hẹp cận dưới"; text = `📏 <b>Xe ${e.node}</b> tiếp tục vòng lặp: ${a} của vùng tranh chấp.`; styleClass = "cap-info"; }
-      else if (e.event === "WINNER") { let bt = e.backoff !== undefined ? e.backoff : (e.Backoff !== undefined ? e.Backoff : null); text = `🏆 <b>Xe ${e.node}</b> thắng tranh chấp, backoff <b>${bt}s</b> trước khi gửi CTB.`; styleClass = "cap-winner"; }
-      else if (e.event === "SEND_DATA") { text = `📦 <b>Xe ${e.from !== undefined ? e.from : e.node}</b> gửi dữ liệu tới Relay <b>Xe ${e.to}</b>.`; styleClass = "cap-data"; }
-      else if (e.event === "RCV_DATA") {
-        if (e.status === "SUCCESS_RELAY") { text = `🎯 <b>Xe ${e.node}</b> relay nhận gói tin, chuẩn bị chuyển tiếp.`; styleClass = "cap-winner"; }
-        else if (e.status === "UP_TO_APP") { return null; }
-        else return null;
+      const time = e.time.toFixed(4); let text = "", styleClass = "cap-info";
+
+      if (e.event === "APP_SEND") { text = `📱 <b>Tầng App Node ${e.node}</b> gửi tin khẩn cấp: <i>"${e.payload || ''}"</i>.`; styleClass = "cap-data"; }
+      else if (e.event === "SEND_RTB_INTER") { text = `📻 <b>Node ${e.node}</b> tại giao lộ gửi RTB Đa Hướng.`; styleClass = "cap-contend"; }
+      else if (e.event === "INTER_JOIN_OPPOSITE") { text = `🚗 <b>Node ${e.node}</b> tham gia nhánh Đối Diện (${e.branch}).`; styleClass = "cap-info"; }
+      else if (e.event === "INTER_JOIN_CROSS") { text = `🚙 <b>Node ${e.node}</b> tham gia nhánh Cắt Ngang (${e.branch}).`; styleClass = "cap-info"; }
+      else if (e.event === "INTER_CROSS_SLOT" || e.event === "CONTENSION_ROUND") {
+        let round = e.round !== undefined ? e.round : (e.iter !== undefined ? e.iter : 0);
+        text = `🔄 <b>Node ${e.node}</b> vòng tranh chấp ${round} (${e.range || 'hiện tại'}).`; styleClass = "cap-info";
       }
-      else if (e.event === "ACK_RECEIVED") { text = `🤝 <b>Xe ${e.node}</b> nghe được RTB của relay, ACK thành công.`; styleClass = "cap-winner"; }
-      else if (e.event === "ACK_TIMEOUT") { text = `⚠️ <b>Xe ${e.node}</b> timeout đợi RTB của relay, chuẩn bị truyền lại.`; styleClass = "cap-warn"; }
-      else if (e.event === "RETRY") { text = `🔁 <b>Xe ${e.node}</b> phát lại gói RTB lần thứ ${e.count || 1}.`; styleClass = "cap-warn"; }
-      else if (e.event === "DROP_PKT") { text = `❌ <b>Xe ${e.node}</b> hủy gói tin.`; styleClass = "cap-warn"; }
-      else if (e.event === "APP_RCV") { text = `✅ <b>Tầng App Xe ${e.node}</b> nhận: <i>"${e.payload || 'Dữ liệu'}"</i>.`; styleClass = "cap-winner"; }
+      else if (e.event.includes("SEND_BB")) { text = `⚡ <b>Node ${e.node}</b> phát Black-Burst.`; styleClass = "cap-contend"; }
+      else if (e.event.includes("DROP_OUT") || e.event.includes("INTER_DROP") || e.event === "INTER_CROSS_DROP") {
+        text = `🛑 <b>Node ${e.node}</b> rút lui do nghe tín hiệu.`; styleClass = "cap-info";
+      }
+      else if (e.event === "INTER_CROSS_KEEP" || e.event === "ITERATION_KEEP") {
+        text = `📏 <b>Node ${e.node}</b> tiếp tục vòng lặp tranh chấp.`; styleClass = "cap-info";
+      }
+      else if (e.event === "INTER_SEND_CTB" || e.event === "RSU_SEND_CTB" || e.event === "SEND_CTB") {
+        text = `🏆 <b>Node ${e.from !== undefined ? e.from : e.node}</b> gửi CTB xác nhận.`; styleClass = "cap-winner";
+      }
+      else if (e.event === "RSU_PREEMPT") {
+        text = `🚑 <b>RSU ${e.node}</b> phát hiện khẩn cấp, CƯỚP QUYỀN điều phối!`; styleClass = "cap-winner";
+      }
+      else if (e.event === "INTER_BROADCAST_DATA") {
+        text = `📦 <b>Node ${e.node}</b> tại giao lộ phát DATA Đa Hướng.`; styleClass = "cap-data";
+      }
+      else if (e.event === "RSU_MISSION_COMPLETE") {
+        text = `✅ <b>RSU ${e.node}</b> nhận được dữ liệu thành công!`; styleClass = "cap-winner";
+      }
+      else if (e.event === "SEND_RTB") { text = `🔊 <b>Node ${e.from !== undefined ? e.from : e.node}</b> gửi RTB.`; styleClass = "cap-contend"; }
+      else if (e.event === "JOIN_BPAB") { text = `🚗 <b>Node ${e.node}</b> tham gia tranh chấp.`; styleClass = "cap-contend"; }
+      else if (e.event === "WINNER" || e.event === "INTER_OPPOSITE_WINNER" || e.event === "INTER_CROSS_WINNER_CANDIDATE") {
+        text = `🏆 <b>Node ${e.node}</b> thắng tranh chấp.`; styleClass = "cap-winner";
+      }
+      else if (e.event === "SEND_DATA") { text = `📦 <b>Node ${e.from !== undefined ? e.from : e.node}</b> gửi DATA tới <b>Node ${e.to}</b>.`; styleClass = "cap-data"; }
+      else if (e.event === "RCV_DATA" || e.event === "INTER_RCV_DATA") {
+        text = `🎯 <b>Node ${e.node}</b> nhận gói tin, chuẩn bị chuyển tiếp.`; styleClass = "cap-winner";
+      }
+      else if (e.event === "ACK_RECEIVED") { text = `🤝 <b>Node ${e.node}</b> nhận ACK thành công.`; styleClass = "cap-winner"; }
+      else if (e.event === "RSU_SEND_ACK") { text = `🤝 <b>RSU ${e.rsu || e.node}</b> phản hồi ACK cho <b>Node ${e.relay || ''}</b>.`; styleClass = "cap-winner"; }
+      else if (e.event === "ACK_TIMEOUT" || e.event === "INTER_TIMEOUT_SEND_DATA") { text = `⚠️ <b>Node ${e.node}</b> timeout đợi phản hồi.`; styleClass = "cap-warn"; }
+      else if (e.event === "RETRY_RTB") { text = `🔁 <b>Node ${e.node}</b> phát lại gói RTB lần thứ ${e.retry || 1}.`; styleClass = "cap-warn"; }
+      else if (e.event === "DROP_PKT") { text = `❌ <b>Node ${e.node}</b> hủy gói tin.`; styleClass = "cap-warn"; }
       else return null;
       return { time, text, styleClass };
     }
 
     function appendSubtitle(narrative, instant = false) {
       if (!narrative || !logDisplay) return;
-      const div = document.createElement("div");
-      div.className = `caption-line ${narrative.styleClass}`;
-      const timeSpan = document.createElement("span");
-      timeSpan.className = "caption-time"; timeSpan.innerText = `⏳ Giây ${narrative.time}`;
-      div.appendChild(timeSpan);
-      const textSpan = document.createElement("span");
-      textSpan.className = "caption-text"; textSpan.innerHTML = narrative.text;
-      div.appendChild(textSpan);
+      const div = document.createElement("div"); div.className = `caption-line ${narrative.styleClass}`;
+      const timeSpan = document.createElement("span"); timeSpan.className = "caption-time"; timeSpan.innerText = `⏳ Giây ${narrative.time}`;
+      const textSpan = document.createElement("span"); textSpan.className = "caption-text"; textSpan.innerHTML = narrative.text;
+      div.appendChild(timeSpan); div.appendChild(textSpan);
       logDisplay.appendChild(div);
       if (!isUserScrolling) logDisplay.scrollTop = logDisplay.scrollHeight;
     }

@@ -6,7 +6,7 @@ simple BpabMac like node.communication.mac.iMac {
         @display("i=block/layer"); // Bieu tuong hien thi trong giao dien OMNeT++
 
         // --- Cac tham so dac thu cua giao thuc BPAB ---
-        
+        int nodeType = default(0);  // 1 = RSU, 0 = Vehicle
         int maxIterations = default(4);        // So vong lap nhi phan (N). N cang lon, vung chon cang hep.
         double rangeR = default(400.0);        // Pham vi truyen dan toi da (R) tinh bang met.
         double slotDuration = default(0.001);   // Do dai moi khe thoi gian (giay) de phat/nghe Xung den.
