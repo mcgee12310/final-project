@@ -704,6 +704,7 @@ void BpabMac::timerFiredCallback(int timerIndex) {
         if (packetToBroadcast && retryCount < maxRetries) {
             retryCount++;
             WEBLOG("EVENT:RETRY_RTB | Node:" << self << " | Retry:" << retryCount);
+            bpabMacState = BPAB_IDLE;
             double jitter = uniform(slotDuration * 0.1, slotDuration * 8.0);
             setTimer(7, jitter);
         } else {

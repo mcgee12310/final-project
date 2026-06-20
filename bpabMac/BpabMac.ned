@@ -9,7 +9,7 @@ simple BpabMac like node.communication.mac.iMac {
         int nodeType = default(0);  // 1 = RSU, 0 = Vehicle
         int maxIterations = default(4);        // So vong lap nhi phan (N). N cang lon, vung chon cang hep.
         double rangeR = default(400.0);        // Pham vi truyen dan toi da (R) tinh bang met.
-        double slotDuration = default(0.001);   // Do dai moi khe thoi gian (giay) de phat/nghe Xung den.
+        double slotDuration = default(0.0005);   // Do dai moi khe thoi gian (giay) de phat/nghe Xung den.
         int maxRetries = default(3);
         
         // --- Cau hinh vat ly cho Xung den (Black Burst) ---
@@ -18,7 +18,6 @@ simple BpabMac like node.communication.mac.iMac {
         double rssiThreshold = default(-85.0); // Nguong nang luong (dBm) de xac dinh co Xung den hay khong.
 
         // --- Cac tham so ke thua tu VirtualMac ---
-        
         bool collectTraceInfo = default(true); // Bat/Tat ghi log (trace) de debug.
         int macBufferSize = default(32);       // So luong goi tin toi da trong hang doi MAC.
         //debug parameters

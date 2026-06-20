@@ -1,4 +1,4 @@
 # Partial OMNeT++/Tkenv config file -- see $HOME/.tkenvrc as well
-config default-configname	{Intersection}
+config default-configname	{Highway}
 config default-runnumber	{0}
 

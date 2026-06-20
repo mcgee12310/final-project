@@ -9,8 +9,8 @@ import math
 # ==========================================
 # CAU HINH HE THONG
 # ==========================================
-SUMO_CONFIG_FILE = "intersection.sumocfg"
-NET_FILE = "intersection.net.xml"
+SUMO_CONFIG_FILE = "highway.sumocfg"
+NET_FILE = "highway.net.xml"
 CASTALIA_IP = "127.0.0.1"
 CASTALIA_PORT = 9999
 STEP_LENGTH = 1

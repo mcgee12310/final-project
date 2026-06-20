@@ -48,7 +48,7 @@ void BpabTraCIManager::setupTcpServer() {
 
 void BpabTraCIManager::initialize() {
     instance = this;
-    nodeIntersectionStatus.clear(); // [CẢI TIẾN] Xóa sạch dữ liệu cũ khi khởi động lại
+    nodeIntersectionStatus.clear(); // Xóa sạch dữ liệu cũ khi khởi động lại
 
     if (!unifiedLog.is_open()) {
         unifiedLog.open("unified_trace.txt", std::ios::out);
@@ -153,6 +153,7 @@ void BpabTraCIManager::pollTcpSocket() {
 }
 
 void BpabTraCIManager::processCommand(const std::string& cmd) {
+//    return;
     // Parser an toàn hơn
     try {
         if (cmd.find("SET_POS") != std::string::npos) {
