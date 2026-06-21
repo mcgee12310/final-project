@@ -1,5 +1,5 @@
 """
-vanet_broadcast_compare.py
+benchmark.py
 ==========================
 Baseline so sánh với BPAB — calibrated theo omnetpp.ini + BpabMac.cpp defaults.
 
@@ -15,8 +15,8 @@ Thời gian 1 hop BPAB (để normalize delay Flooding/Weighted-P):
                = 0.0005 × (8 + 20) = 0.014 s/hop
 
 Dùng:
-  python vanet_broadcast_compare.py
-  python vanet_broadcast_compare.py --log den5.txt --time 29.8 --source 80
+  python benchmark.py
+  python benchmark.py --log den5.txt --time 29.8 --source 80
 """
 
 import re
