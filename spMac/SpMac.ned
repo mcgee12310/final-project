@@ -7,7 +7,7 @@ simple SpMac like node.communication.mac.iMac {
         int macBufferSize = default(32);
         
         double maxBroadcastRange = default(400.0); // Bán kính R
-        int maxHopCount = default(20);
+        int maxHopCount = default(100);
         
         // Tham số riêng của Slotted p-Persistence
         int numSlots = default(10);                 // Số lượng khe thời gian (N_s)

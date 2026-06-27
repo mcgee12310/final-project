@@ -28,7 +28,7 @@ void WppMac::startup() {
     VirtualMac::startup();
 
     maxBroadcastRange = 400;
-    jitterMax = 0.02;
+    jitterMax = 0.01;
     maxHopCount = par("maxHopCount");
     seqCounter = 0;
 

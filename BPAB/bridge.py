@@ -9,11 +9,11 @@ import math
 # ==========================================
 # CAU HINH HE THONG
 # ==========================================
-SUMO_CONFIG_FILE = "highway.sumocfg"
-NET_FILE = "highway.net.xml"
+SUMO_CONFIG_FILE = "8_vehs.sumocfg"
+NET_FILE = "map.net.xml"
 CASTALIA_IP = "127.0.0.1"
 CASTALIA_PORT = 9999
-STEP_LENGTH = 1
+STEP_LENGTH = 0.2
 PLAYBACK_SPEED = 2.0
 INTERSECTION_THRESHOLD = 30.0
 

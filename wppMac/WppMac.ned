@@ -11,7 +11,7 @@ simple WppMac like node.communication.mac.iMac {
         // Các tham số riêng của thuật toán WpP
         double maxBroadcastRange = default(400.0); // Bán kính R
         double jitterMax = default(0.01);          // Trễ ngẫu nhiên tối đa (giây)
-        int maxHopCount = default(20);             // Giới hạn số hop (TTL)
+        int maxHopCount = default(100);             // Giới hạn số hop (TTL)
         
         // --- Cac tham so ke thua tu VirtualMac ---
         bool collectTraceInfo = default(true); // Bat/Tat ghi log (trace) de debug.
